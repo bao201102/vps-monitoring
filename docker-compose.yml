@@ -7,15 +7,16 @@ services:
     image: mongo:7
     restart: unless-stopped
     volumes:
-      - mongo_data:/data/db
+      - ./mongo_data:/data/db
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      test: [ "CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok" ]
       interval: 10s
       timeout: 5s
       retries: 10
 
   web:
-    build: .
+    # Sử dụng image đã được build và push sẵn. Bạn có thể override qua biến DOCKER_IMAGE trong file .env
+    image: ${DOCKER_IMAGE:-your-username/vps-monitoring:latest}
     restart: unless-stopped
     depends_on:
       mongo:
@@ -29,5 +30,4 @@ services:
     ports:
       - "${PORT:-3000}:3000"
 
-volumes:
-  mongo_data:
+# Không cần khai báo named volume nữa vì đã chuyển sang bind mount (./mongo_data)

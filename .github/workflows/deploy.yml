@@ -1,0 +1,116 @@
+name: VPS Monitoring CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  # Job 1: Kiểm tra chất lượng mã nguồn (Lint)
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npm run lint
+
+  # Job 2: Build Docker Image và Push lên Docker Hub (Chỉ chạy sau khi Lint thành công)
+  build-and-push:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/vps-monitoring:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Job 3: Deploy lên VPS thông qua SSH (Chỉ chạy sau khi Build thành công)
+  deploy:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            cd /home/ubuntu/vps-monitoring
+            sudo docker compose pull
+            sudo docker compose up -d
+            sudo docker image prune -f
+
+  # Job 4: Gửi thông báo kết quả lên Telegram (Luôn chạy sau khi hoàn thành quy trình)
+  notify-telegram:
+    needs: [lint, build-and-push, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Send Telegram notification
+        run: |
+          STATUS_EMOJI="✅"
+          if [ "${{ needs.deploy.result }}" != "success" ]; then
+            STATUS_EMOJI="❌"
+          fi
+          
+          STATUS_UPPER=$(echo "${{ job.status }}" | tr '[:lower:]' '[:upper:]')
+          TIMESTAMP=$(TZ='Asia/Ho_Chi_Minh' date +"%Y-%m-%d %H:%M:%S")
+          
+          # Calculate duration
+          START_TIME=$(date -d "${{ github.event.head_commit.timestamp }}" +%s)
+          END_TIME=$(date +%s)
+          DURATION=$((END_TIME - START_TIME))
+          MINUTES=$((DURATION / 60))
+          SECONDS=$((DURATION % 60))
+          
+          MESSAGE="${STATUS_EMOJI} *${STATUS_UPPER}* ${TIMESTAMP}
+          
+          Repository: \`${{ github.repository }}\`
+          Build: #${{ github.run_number }}
+          Duration: ${MINUTES}m ${SECONDS}s
+
+          [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          
+          curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
+              \"message_thread_id\": ${{ secrets.TELEGRAM_TOPIC_ID }},
+              \"text\": \"${MESSAGE}\",
+              \"parse_mode\": \"Markdown\",
+              \"disable_web_page_preview\": true
+            }"
