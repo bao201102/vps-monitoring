@@ -30,10 +30,13 @@ jobs:
   # Job 2: Build Docker Image và Push lên Docker Hub (Chỉ chạy sau khi Lint thành công)
   build-and-push:
     needs: lint
-    runs-on: ubuntu-24.04-arm64
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
