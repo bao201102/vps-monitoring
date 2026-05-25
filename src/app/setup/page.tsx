@@ -26,7 +26,7 @@ export default async function SetupPage() {
               Create your administrator account.
             </h1>
             <p className="max-w-md text-ink-muted">
-              VPS Monitor doesn't support public registration. The first account you create is the
+              VPS Monitor doesn&apos;t support public registration. The first account you create is the
               only admin. Use a strong password — you can change it later.
             </p>
           </div>
