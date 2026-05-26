@@ -7,7 +7,7 @@
 #
 # This installer:
 #   - Installs deps (curl, jq) if missing
-#   - Drops the agent script into /opt/vps-monitor-agent/
+#   - Drops the agent script into /opt/vps-monitor-agent-$USER_ID/
 #   - Registers with the dashboard (auto-generates agentId + token)
 #   - Installs and starts a systemd service that survives reboots
 # ==============================================================================
@@ -16,11 +16,11 @@ set -euo pipefail
 SERVER_URL="__SERVER_URL__"
 USER_ID="__USER_ID__"
 INTERVAL="__INTERVAL__"
-INSTALL_DIR="/opt/vps-monitor-agent"
+INSTALL_DIR="/opt/vps-monitor-agent-$USER_ID"
 CONFIG_FILE="$INSTALL_DIR/agent.conf"
 AGENT_SCRIPT="$INSTALL_DIR/agent.sh"
 UNINSTALL_SCRIPT="$INSTALL_DIR/uninstall.sh"
-SERVICE_FILE="/etc/systemd/system/vps-monitor-agent.service"
+SERVICE_FILE="/etc/systemd/system/vps-monitor-agent-$USER_ID.service"
 
 c_blue=$'\e[1;34m'; c_green=$'\e[1;32m'; c_yellow=$'\e[1;33m'; c_red=$'\e[1;31m'; c_reset=$'\e[0m'
 log()  { printf '%s==>%s %s\n' "$c_blue"   "$c_reset" "$*"; }
@@ -144,7 +144,8 @@ cat > "$AGENT_SCRIPT" <<'AGENT_EOF'
 # vps-monitor-agent: collects metrics and POSTs to the dashboard.
 set -u
 
-CONFIG_FILE="/opt/vps-monitor-agent/agent.conf"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${1:-$SCRIPT_DIR/agent.conf}"
 # shellcheck disable=SC1090
 . "$CONFIG_FILE"
 
@@ -444,30 +445,30 @@ AGENT_EOF
 chmod +x "$AGENT_SCRIPT"
 
 # ---- Write uninstall script -------------------------------------------------
-cat > "$UNINSTALL_SCRIPT" <<'UNI_EOF'
+cat > "$UNINSTALL_SCRIPT" <<EOF
 #!/usr/bin/env bash
 set -e
-[ "$(id -u)" -eq 0 ] || { echo "Run as root."; exit 1; }
-systemctl stop vps-monitor-agent 2>/dev/null || true
-systemctl disable vps-monitor-agent 2>/dev/null || true
-rm -f /etc/systemd/system/vps-monitor-agent.service
+[ "\$(id -u)" -eq 0 ] || { echo "Run as root."; exit 1; }
+systemctl stop vps-monitor-agent-$USER_ID 2>/dev/null || true
+systemctl disable vps-monitor-agent-$USER_ID 2>/dev/null || true
+rm -f /etc/systemd/system/vps-monitor-agent-$USER_ID.service
 systemctl daemon-reload || true
-rm -rf /opt/vps-monitor-agent
-echo "vps-monitor-agent removed."
-UNI_EOF
+rm -rf $INSTALL_DIR
+echo "vps-monitor-agent-$USER_ID removed."
+EOF
 chmod +x "$UNINSTALL_SCRIPT"
 
 # ---- systemd service --------------------------------------------------------
 log "Installing systemd service…"
 cat > "$SERVICE_FILE" <<EOF
 [Unit]
-Description=VPS Monitor Agent
+Description=VPS Monitor Agent ($USER_ID)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/env bash $AGENT_SCRIPT
+ExecStart=/usr/bin/env bash $AGENT_SCRIPT $CONFIG_FILE
 Restart=always
 RestartSec=5
 User=root
@@ -480,21 +481,21 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable vps-monitor-agent >/dev/null 2>&1
-systemctl restart vps-monitor-agent
+systemctl enable vps-monitor-agent-$USER_ID >/dev/null 2>&1
+systemctl restart vps-monitor-agent-$USER_ID
 
 sleep 2
-if systemctl is-active --quiet vps-monitor-agent; then
+if systemctl is-active --quiet vps-monitor-agent-$USER_ID; then
   ok "Agent is running."
 else
-  warn "Agent service is not active. Run: journalctl -u vps-monitor-agent -n 50"
+  warn "Agent service is not active. Run: journalctl -u vps-monitor-agent-$USER_ID -n 50"
 fi
 
 echo
 echo "${c_green}✔ Installation complete!${c_reset}"
 echo "  Agent ID:      $AGENT_ID"
 echo "  Dashboard:     $SERVER_URL"
-echo "  Status:        sudo systemctl status vps-monitor-agent"
-echo "  Logs:          sudo journalctl -u vps-monitor-agent -f"
+echo "  Status:        sudo systemctl status vps-monitor-agent-$USER_ID"
+echo "  Logs:          sudo journalctl -u vps-monitor-agent-$USER_ID -f"
 echo "  Uninstall:     sudo $UNINSTALL_SCRIPT"
 echo

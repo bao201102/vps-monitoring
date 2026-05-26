@@ -58,24 +58,29 @@ If you keep `docker compose up -d` (with the bundled `mongo` service), you can s
 In the dashboard, click **Add server**. Copy the install command and run it on your VPS:
 
 ```bash
-curl -fsSL https://monitor.yourdomain.com/api/install | sudo bash
+curl -fsSL https://monitor.yourdomain.com/api/install?userId=YOUR_USER_ID | sudo bash
 ```
 
 The VPS will:
 
 1. Register itself with the dashboard (auto-generates `agentId` + token).
-2. Install a systemd service `vps-monitor-agent` that survives reboots.
+2. Install an isolated systemd service `vps-monitor-agent-<userId>` that survives reboots.
 3. Start posting metrics immediately.
 
 No login, no manual steps required.
 
+> [!NOTE]
+> The agent supports **multi-user installations** on a single VPS. If multiple users install the agent on the same machine, each user's installation runs isolated under `/opt/vps-monitor-agent-<userId>` as its own systemd service, without overwriting other users' configurations or metrics.
+
 ### Manage the agent on the VPS
 
+Use your specific `userId` in the commands below (the correct commands are customized and shown under the **Add server** or **Documentation** tab on your dashboard):
+
 ```bash
-sudo systemctl status vps-monitor-agent    # check status
-sudo systemctl restart vps-monitor-agent   # restart
-sudo journalctl -u vps-monitor-agent -f    # tail logs
-sudo /opt/vps-monitor-agent/uninstall.sh   # remove
+sudo systemctl status vps-monitor-agent-<userId>    # check status
+sudo systemctl restart vps-monitor-agent-<userId>   # restart
+sudo journalctl -u vps-monitor-agent-<userId> -f    # tail logs
+sudo /opt/vps-monitor-agent-<userId>/uninstall.sh   # remove
 ```
 
 ## 🛠️ Local development
@@ -147,10 +152,6 @@ Configure the bot token, chat id, thresholds (CPU, RAM, disk `/`), and per-serve
 | PATCH  | `/api/agents/:id`               | session     | Update label/tags.                |
 | DELETE | `/api/agents/:id`               | session     | Remove agent + metrics.           |
 | GET    | `/api/agents/:id/metrics`       | session     | Time-series metrics.              |
-
-## 💬 Support
-
-Need help? Contact Telegram: [@blackpink2812](https://t.me/blackpink2812)
 
 ## 📄 License
 

@@ -40,8 +40,8 @@ export default async function DocsPage() {
           <li>Generates a unique <code className="text-ink-muted">agentId</code> and token.</li>
           <li>Auto-registers the VPS with this dashboard.</li>
           <li>
-            Installs a systemd service <code className="text-ink-muted">vps-monitor-agent</code>{' '}
-            that survives reboots.
+            Installs a systemd service{' '}
+            <code className="text-ink-muted">vps-monitor-agent-{userId}</code> that survives reboots.
           </li>
           <li>Reports CPU, memory, disk, network, load and uptime every 15s by default.</li>
         </ul>

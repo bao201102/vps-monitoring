@@ -109,7 +109,7 @@ export function AddServerClient({ appUrl, userId }: { appUrl: string; userId: st
         <Info
           icon={Terminal}
           title="systemd service"
-          body="The script installs vps-monitor-agent.service so the agent restarts automatically and survives reboots."
+          body={`The script installs vps-monitor-agent-${userId}.service so the agent restarts automatically and survives reboots.`}
         />
       </div>
 
@@ -137,11 +137,11 @@ export function AddServerClient({ appUrl, userId }: { appUrl: string; userId: st
       <div className="card card-pad">
         <h3 className="text-base font-semibold text-ink">Manage the agent</h3>
         <div className="mt-3 space-y-2 text-sm text-ink-muted">
-          <CmdLine cmd="sudo systemctl status vps-monitor-agent" desc="Check status" />
-          <CmdLine cmd="sudo systemctl restart vps-monitor-agent" desc="Restart" />
-          <CmdLine cmd="sudo journalctl -u vps-monitor-agent -f" desc="Tail logs" />
+          <CmdLine cmd={`sudo systemctl status vps-monitor-agent-${userId}`} desc="Check status" />
+          <CmdLine cmd={`sudo systemctl restart vps-monitor-agent-${userId}`} desc="Restart" />
+          <CmdLine cmd={`sudo journalctl -u vps-monitor-agent-${userId} -f`} desc="Tail logs" />
           <CmdLine
-            cmd="sudo /opt/vps-monitor-agent/uninstall.sh"
+            cmd={`sudo /opt/vps-monitor-agent-${userId}/uninstall.sh`}
             desc="Remove agent + data"
           />
         </div>
