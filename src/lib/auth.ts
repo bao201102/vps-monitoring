@@ -11,7 +11,7 @@ const getSecret = (): Uint8Array => new TextEncoder().encode(env.JWT_SECRET);
 export interface SessionPayload {
   sub: string;
   username: string;
-  role: 'admin';
+  role: 'admin' | 'user';
 }
 
 export async function hashPassword(plain: string): Promise<string> {
@@ -36,7 +36,7 @@ export async function verifySession(token: string): Promise<SessionPayload | nul
     return {
       sub: String(payload.sub),
       username: String((payload as Record<string, unknown>).username),
-      role: 'admin',
+      role: (payload.role === 'admin' ? 'admin' : 'user') as 'admin' | 'user',
     };
   } catch {
     return null;

@@ -21,6 +21,7 @@ export interface IAgent {
   lastTelegramAlertAt?: Date;
   /** Last offline/shutdown alert. Compared with lastSeenAt to alert once per outage. */
   lastTelegramOfflineAlertAt?: Date;
+  userId: string;
   registeredAt: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -28,6 +29,7 @@ export interface IAgent {
 
 const AgentSchema = new Schema<IAgent>(
   {
+    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
     agentId: { type: String, required: true, unique: true, index: true },
     token: { type: String, required: true, unique: true, index: true },
     hostname: { type: String, default: 'unknown' },

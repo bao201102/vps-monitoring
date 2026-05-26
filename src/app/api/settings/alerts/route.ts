@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
-  getPublicAlertSettings,
-  updateAppSettings,
-} from '@/lib/app-settings';
+  getUserAlertSettings,
+  updateUserAlertSettings,
+} from '@/lib/user-settings';
 import { getSessionFromCookies } from '@/lib/auth';
 import { TelegramTokenRejectedError } from '@/lib/telegram-client';
 
@@ -24,7 +24,7 @@ export async function GET() {
   const session = await getSessionFromCookies();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   try {
-    const settings = await getPublicAlertSettings();
+    const settings = await getUserAlertSettings(session.sub);
     return NextResponse.json(settings);
   } catch (e) {
     console.error('[settings/alerts GET]', e);
@@ -43,7 +43,7 @@ export async function PUT(req: Request) {
   }
 
   try {
-    const settings = await updateAppSettings(parsed.data);
+    const settings = await updateUserAlertSettings(session.sub, parsed.data);
     return NextResponse.json(settings);
   } catch (e) {
     if (e instanceof TelegramTokenRejectedError) {

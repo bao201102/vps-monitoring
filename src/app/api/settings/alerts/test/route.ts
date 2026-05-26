@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAppSettings } from '@/lib/app-settings';
+import { getUserResolvedAlertSettings } from '@/lib/user-settings';
 import { getSessionFromCookies } from '@/lib/auth';
 import { isTelegramAlertsConfigured, sendTelegramSettingsTestResult } from '@/lib/telegram-alerts';
 
@@ -11,7 +11,7 @@ export async function POST() {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const settings = await getAppSettings();
+    const settings = await getUserResolvedAlertSettings(session.sub);
     if (!isTelegramAlertsConfigured(settings)) {
       return NextResponse.json(
         { error: 'Chưa có bot token và chat id. Lưu cấu hình trước khi gửi thử.' },

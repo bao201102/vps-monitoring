@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { isSetupComplete } from '@/lib/setup';
-import { LoginForm } from './LoginForm';
+import { SignupForm } from './SignupForm';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { ShieldCheck } from 'lucide-react';
@@ -8,7 +8,7 @@ import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
 
-export default async function LoginPage() {
+export default async function RegisterPage() {
   if (!(await isSetupComplete())) {
     redirect('/setup');
   }
@@ -23,15 +23,15 @@ export default async function LoginPage() {
 
         <div className="card card-pad w-full animate-fade-in">
           <div className="mb-6">
-            <h1 className="text-2xl font-semibold tracking-tight text-ink">Welcome back</h1>
-            <p className="mt-1 text-sm text-ink-muted">Sign in to manage your VPS fleet.</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-ink">Create an account</h1>
+            <p className="mt-1 text-sm text-ink-muted">Sign up to monitor your VPS fleet.</p>
           </div>
-          <LoginForm />
+          <SignupForm />
 
           <p className="mt-6 text-center text-xs text-ink-soft">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-brand hover:underline font-semibold">
-              Sign up
+            Already have an account?{' '}
+            <Link href="/login" className="text-brand hover:underline font-semibold">
+              Sign in
             </Link>
           </p>
         </div>

@@ -299,11 +299,10 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
               <button
                 key={r.v}
                 onClick={() => setRange(r.v)}
-                className={`rounded-md px-3 py-1.5 transition-colors ${
-                  range === r.v
+                className={`rounded-md px-3 py-1.5 transition-colors ${range === r.v
                     ? 'bg-bg-card text-ink shadow'
                     : 'text-ink-muted hover:text-ink'
-                }`}
+                  }`}
               >
                 {r.label}
               </button>
@@ -546,9 +545,8 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
             <UsageBar
               value={Math.min(100, latest?.dockerCpuPercent ?? 0)}
               label="Docker CPU"
-              hint={`${(latest?.dockerCpuPercent ?? 0).toFixed(1)}% · ${
-                latest?.dockerContainerCount ?? 0
-              } containers`}
+              hint={`${(latest?.dockerCpuPercent ?? 0).toFixed(1)}% · ${latest?.dockerContainerCount ?? 0
+                } containers`}
             />
             <UsageBar
               value={gpuMemPct}

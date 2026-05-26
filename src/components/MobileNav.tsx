@@ -2,23 +2,24 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Server, Settings } from 'lucide-react';
+import { LayoutDashboard, Server, Settings, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
-const NAV = [
-  { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
-  { href: '/servers', label: 'Servers', icon: Server },
-  { href: '/settings', label: 'Settings', icon: Settings },
-];
-
-export function MobileNav() {
+export function MobileNav({ role }: { role: string }) {
   const pathname = usePathname();
+
+  const navItems = [
+    { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+    { href: '/servers', label: 'Servers', icon: Server },
+    role === 'admin' && { href: '/admin/users', label: 'Users', icon: Users },
+    { href: '/settings', label: 'Settings', icon: Settings },
+  ].filter(Boolean) as { href: string; label: string; icon: any }[];
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 flex items-stretch gap-1 border-t border-border bg-bg-soft/80 px-2 py-2 backdrop-blur-xl lg:hidden">
       <div className="flex flex-1 justify-around">
-        {NAV.map((item) => {
+        {navItems.map((item) => {
           const Icon = item.icon;
           const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (

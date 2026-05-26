@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
 
 const schema = z.object({
   agentId: z.string().min(8).max(64).optional(),
+  userId: z.string().min(1),
   hostname: z.string().max(255).default('unknown'),
   os: z.string().max(64).default('unknown'),
   osVersion: z.string().max(128).default(''),
@@ -39,6 +40,10 @@ export async function POST(req: Request) {
     : null;
 
   if (agent) {
+    // If agent exists, ensure the registering user owns it to prevent hijacking
+    if (agent.userId !== parsed.data.userId) {
+      return NextResponse.json({ error: 'Unauthorized agent registration override' }, { status: 403 });
+    }
     Object.assign(agent, {
       hostname: parsed.data.hostname,
       os: parsed.data.os,
@@ -66,6 +71,7 @@ export async function POST(req: Request) {
 
   agent = await Agent.create({
     agentId,
+    userId: parsed.data.userId,
     token,
     hostname: parsed.data.hostname,
     os: parsed.data.os,

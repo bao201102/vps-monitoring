@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAppSettings } from '@/lib/app-settings';
+import { getUserResolvedAlertSettings } from '@/lib/user-settings';
 import { connectDB } from '@/lib/db';
 import { Agent } from '@/lib/models/Agent';
 import { Metric } from '@/lib/models/Metric';
@@ -23,7 +23,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   await connectDB();
-  const agent = await Agent.findOne({ agentId: params.agentId }).lean();
+  const agent = await Agent.findOne({ agentId: params.agentId, userId: session.sub }).lean();
   if (!agent) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
   const latest = await Metric.findOne({ agentId: params.agentId }).sort({ ts: -1 }).lean();
@@ -34,7 +34,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
     : false;
 
   if (!online && shouldSendTelegramDisconnectAlert(agent)) {
-    const appSettings = await getAppSettings();
+    const appSettings = await getUserResolvedAlertSettings(session.sub);
     const sent = await sendTelegramDisconnectIfNeeded(agent, appSettings, env.APP_URL, 'offline');
     if (sent) {
       await Agent.updateOne(
@@ -85,7 +85,7 @@ export async function PATCH(req: Request, { params }: RouteContext) {
 
   await connectDB();
   const agent = await Agent.findOneAndUpdate(
-    { agentId: params.agentId },
+    { agentId: params.agentId, userId: session.sub },
     { $set: parsed.data },
     { new: true }
   );
@@ -99,6 +99,9 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   await connectDB();
+  const agent = await Agent.findOne({ agentId: params.agentId, userId: session.sub });
+  if (!agent) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
   await Agent.deleteOne({ agentId: params.agentId });
   await Metric.deleteMany({ agentId: params.agentId });
 

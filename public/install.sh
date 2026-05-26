@@ -14,6 +14,7 @@
 set -euo pipefail
 
 SERVER_URL="__SERVER_URL__"
+USER_ID="__USER_ID__"
 INTERVAL="__INTERVAL__"
 INSTALL_DIR="/opt/vps-monitor-agent"
 CONFIG_FILE="$INSTALL_DIR/agent.conf"
@@ -94,6 +95,7 @@ log "Registering with $SERVER_URL …"
 
 REG_PAYLOAD=$(jq -n \
   --arg agentId "$AGENT_ID" \
+  --arg userId "$USER_ID" \
   --arg hostname "$HOSTNAME_VAL" \
   --arg os "$OS_ID" \
   --arg osVersion "$OS_VER" \
@@ -105,7 +107,7 @@ REG_PAYLOAD=$(jq -n \
   --argjson totalDiskBytes "${DISK_TOTAL_BYTES:-0}" \
   --arg publicIp "${PUBLIC_IP:-}" \
   --arg privateIp "${PRIVATE_IP:-}" \
-  '{agentId:$agentId, hostname:$hostname, os:$os, osVersion:$osVersion, kernel:$kernel, arch:$arch, cpuModel:$cpuModel, cpuCores:$cpuCores, totalMemoryBytes:$totalMemoryBytes, totalDiskBytes:$totalDiskBytes, publicIp:$publicIp, privateIp:$privateIp}')
+  '{agentId:$agentId, userId:$userId, hostname:$hostname, os:$os, osVersion:$osVersion, kernel:$kernel, arch:$arch, cpuModel:$cpuModel, cpuCores:$cpuCores, totalMemoryBytes:$totalMemoryBytes, totalDiskBytes:$totalDiskBytes, publicIp:$publicIp, privateIp:$privateIp}')
 
 REG_RESPONSE="$(curl -fsS -X POST "$SERVER_URL/api/agents/register" \
   -H 'Content-Type: application/json' \

@@ -9,6 +9,11 @@ export const dynamic = 'force-dynamic';
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const interval = url.searchParams.get('interval') ?? '15';
+  const userId = url.searchParams.get('userId');
+
+  if (!userId) {
+    return new NextResponse('Missing userId parameter. Please get the install command from your dashboard.', { status: 400 });
+  }
 
   const baseUrl = env.APP_URL.replace(/\/$/, '');
 
@@ -22,7 +27,8 @@ export async function GET(req: Request) {
 
   const rendered = template
     .replace(/__SERVER_URL__/g, baseUrl)
-    .replace(/__INTERVAL__/g, String(Math.max(5, Number(interval) || 15)));
+    .replace(/__INTERVAL__/g, String(Math.max(5, Number(interval) || 15)))
+    .replace(/__USER_ID__/g, userId);
 
   return new NextResponse(rendered, {
     headers: {

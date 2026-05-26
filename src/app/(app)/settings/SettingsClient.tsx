@@ -185,8 +185,8 @@ export function SettingsClient({
         </h2>
         <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
           <Row label="Username" value={data?.user?.username ?? '—'} />
-          <Row label="Role" value="Administrator" />
-          <Row label="Public sign-ups" value={<span className="chip-muted">Disabled</span>} />
+          <Row label="Role" value={data?.user?.role === 'admin' ? 'Administrator' : 'User'} />
+          <Row label="Public sign-ups" value={<span className="chip-success">Enabled</span>} />
         </dl>
       </div>
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getAppSettings } from '@/lib/app-settings';
+import { getUserResolvedAlertSettings } from '@/lib/user-settings';
 import { connectDB } from '@/lib/db';
 import { env } from '@/lib/env';
 import { Agent } from '@/lib/models/Agent';
@@ -67,7 +67,7 @@ export async function POST(req: Request) {
   agent.lastSeenAt = now;
 
   if (parsed.data.status === 'shutdown') {
-    const appSettings = await getAppSettings();
+    const appSettings = await getUserResolvedAlertSettings(agent.userId);
     const sent = await sendTelegramDisconnectIfNeeded(
       {
         agentId: agent.agentId,
@@ -123,7 +123,7 @@ export async function POST(req: Request) {
     processCount: parsed.data.processCount,
   });
 
-  const appSettings = await getAppSettings();
+  const appSettings = await getUserResolvedAlertSettings(agent.userId);
   const sent = await sendTelegramOverloadIfNeeded(
     agent,
     {

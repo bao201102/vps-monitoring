@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAppSettings } from '@/lib/app-settings';
+import { getUserResolvedAlertSettings } from '@/lib/user-settings';
 import { connectDB } from '@/lib/db';
 import { Agent } from '@/lib/models/Agent';
 import { Metric } from '@/lib/models/Metric';
@@ -21,7 +21,7 @@ export async function GET() {
 
   await connectDB();
   /** Stable order (not by lastSeenAt) so dashboard / server list cards do not reorder every heartbeat. */
-  const agents = await Agent.find({}).sort({ hostname: 1, agentId: 1 }).lean();
+  const agents = await Agent.find({ userId: session.sub }).sort({ hostname: 1, agentId: 1 }).lean();
   const ids = agents.map((a) => a.agentId);
 
   const latest = await Metric.aggregate([
@@ -95,7 +95,7 @@ export async function GET() {
     return !online && shouldSendTelegramDisconnectAlert(a);
   });
   if (offlineAlertCandidates.length > 0) {
-    const appSettings = await getAppSettings();
+    const appSettings = await getUserResolvedAlertSettings(session.sub);
     for (const agent of offlineAlertCandidates) {
       const sent = await sendTelegramDisconnectIfNeeded(agent, appSettings, env.APP_URL, 'offline');
       if (sent) {

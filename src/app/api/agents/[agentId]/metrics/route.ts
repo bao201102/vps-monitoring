@@ -24,6 +24,9 @@ export async function GET(req: Request, { params }: RouteContext) {
   else if (range === '7d') fromMs = now - 7 * 24 * 60 * 60 * 1000;
 
   await connectDB();
+  const agentExists = await Agent.findOne({ agentId: params.agentId, userId: session.sub });
+  if (!agentExists) return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
+
   const rows = await Metric.find({
     agentId: params.agentId,
     ts: { $gte: new Date(fromMs) },
