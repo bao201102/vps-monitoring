@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import { Agent } from '@/lib/models/Agent';
 import { Metric } from '@/lib/models/Metric';
+import { DockerContainer } from '@/lib/models/DockerContainer';
+import { CONTAINERS_BY_AGENT, CONTAINER_MOCK_LOGS, CONTAINER_MOCK_DETAILS } from '@/lib/containers';
 import { getSessionFromCookies } from '@/lib/auth';
 
 export const runtime = 'nodejs';
@@ -19,6 +21,7 @@ export async function GET(req: Request) {
   const mockAgentIds = ['instance-20260414-1357', 'monitoring', 'vps-paused'];
   await Agent.deleteMany({ agentId: { $in: mockAgentIds }, userId: session.sub });
   await Metric.deleteMany({ agentId: { $in: mockAgentIds } });
+  await DockerContainer.deleteMany({ agentId: { $in: mockAgentIds } });
 
   const now = new Date();
 
@@ -90,6 +93,55 @@ export async function GET(req: Request) {
   ];
 
   await Agent.insertMany(agentsToInsert);
+
+  // 1.5. Create mock containers in DB
+  const containersToInsert: any[] = [];
+  
+  // containers for nub.io.vn (instance-20260414-1357)
+  const nubContainers = CONTAINERS_BY_AGENT['nub.io.vn'] || [];
+  nubContainers.forEach(c => {
+    containersToInsert.push({
+      agentId: 'instance-20260414-1357',
+      name: c.name,
+      image: c.image,
+      ports: c.ports,
+      status: c.status,
+      health: c.health,
+      cpuWeight: c.cpuWeight,
+      memWeight: c.memWeight,
+      netWeight: c.netWeight,
+      defaultCpu: c.defaultCpu,
+      defaultMem: c.defaultMem,
+      defaultNet: c.defaultNet,
+      color: c.color,
+      logs: CONTAINER_MOCK_LOGS[c.name] || [],
+      details: CONTAINER_MOCK_DETAILS[c.name] || {}
+    });
+  });
+
+  // containers for root/monitoring (monitoring)
+  const rootContainers = CONTAINERS_BY_AGENT['root'] || [];
+  rootContainers.forEach(c => {
+    containersToInsert.push({
+      agentId: 'monitoring',
+      name: c.name,
+      image: c.image,
+      ports: c.ports,
+      status: c.status,
+      health: c.health,
+      cpuWeight: c.cpuWeight,
+      memWeight: c.memWeight,
+      netWeight: c.netWeight,
+      defaultCpu: c.defaultCpu,
+      defaultMem: c.defaultMem,
+      defaultNet: c.defaultNet,
+      color: c.color,
+      logs: CONTAINER_MOCK_LOGS[c.name] || [],
+      details: CONTAINER_MOCK_DETAILS[c.name] || {}
+    });
+  });
+
+  await DockerContainer.insertMany(containersToInsert);
 
   // 2. Generate historical metrics for the past 2 hours (every 1 minute -> 120 points per agent)
   const metricsToInsert = [];

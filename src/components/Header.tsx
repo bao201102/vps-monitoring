@@ -12,6 +12,7 @@ import {
   LogOut,
   Users,
   BookOpen,
+  Container,
 } from 'lucide-react';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
@@ -89,21 +90,29 @@ export function Header({ onSearchClick, username, role }: HeaderProps) {
           {role === 'admin' && (
             <Link
               href="/admin/users"
-              className={`rounded-md p-2 text-ink-soft transition-colors hover:bg-bg-muted hover:text-ink ${
-                pathname.startsWith('/admin/users') ? 'bg-bg-muted text-ink' : ''
-              }`}
+              className={`rounded-md p-2 text-ink-soft transition-colors hover:bg-bg-muted hover:text-ink ${pathname.startsWith('/admin/users') ? 'bg-bg-muted text-ink' : ''
+                }`}
               title="Users Management"
             >
               <Users className="h-4 w-4" />
             </Link>
           )}
 
+          {/* All Containers Icon */}
+          <Link
+            href="/containers"
+            className={`rounded-md p-2 text-ink-soft transition-colors hover:bg-bg-muted hover:text-ink ${pathname === '/containers' ? 'bg-bg-muted text-ink' : ''
+              }`}
+            title="All Containers"
+          >
+            <Container className="h-4 w-4" />
+          </Link>
+
           {/* Documentation Icon */}
           <Link
             href="/docs"
-            className={`rounded-md p-2 text-ink-soft transition-colors hover:bg-bg-muted hover:text-ink ${
-              pathname === '/docs' ? 'bg-bg-muted text-ink' : ''
-            }`}
+            className={`rounded-md p-2 text-ink-soft transition-colors hover:bg-bg-muted hover:text-ink ${pathname === '/docs' ? 'bg-bg-muted text-ink' : ''
+              }`}
             title="Documentation"
           >
             <BookOpen className="h-4 w-4" />
@@ -119,9 +128,8 @@ export function Header({ onSearchClick, username, role }: HeaderProps) {
           {/* Settings Icon */}
           <Link
             href="/settings"
-            className={`rounded-md p-2 text-ink-soft transition-colors hover:bg-bg-muted hover:text-ink ${
-              pathname === '/settings' ? 'bg-bg-muted text-ink' : ''
-            }`}
+            className={`rounded-md p-2 text-ink-soft transition-colors hover:bg-bg-muted hover:text-ink ${pathname === '/settings' ? 'bg-bg-muted text-ink' : ''
+              }`}
             title="Settings"
           >
             <Settings className="h-4 w-4" />

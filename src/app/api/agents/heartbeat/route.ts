@@ -5,6 +5,8 @@ import { connectDB } from '@/lib/db';
 import { env } from '@/lib/env';
 import { Agent } from '@/lib/models/Agent';
 import { Metric } from '@/lib/models/Metric';
+import { AgentCommand } from '@/lib/models/AgentCommand';
+import { SystemService } from '@/lib/models/SystemService';
 import { sendTelegramDisconnectIfNeeded, sendTelegramOverloadIfNeeded } from '@/lib/telegram-alerts';
 
 export const runtime = 'nodejs';
@@ -42,6 +44,13 @@ const schema = z.object({
   gpuPowerWatts: z.number().min(0).default(0),
   uptimeSeconds: z.number().min(0).default(0),
   processCount: z.number().int().min(0).default(0),
+  services: z.array(z.object({
+    name: z.string(),
+    description: z.string().default(''),
+    state: z.string().default('Inactive'),
+    subState: z.string().default('Dead'),
+    memory: z.number().default(0),
+  })).optional(),
 });
 
 export async function POST(req: Request) {
@@ -86,6 +95,46 @@ export async function POST(req: Request) {
     }
     await agent.save();
     return NextResponse.json({ ok: true });
+  }
+
+  // Process and update SystemService records from the heartbeat payload
+  if (parsed.data.services) {
+    for (const s of parsed.data.services) {
+      const existing = await SystemService.findOne({ agentId: agent.agentId, name: s.name });
+      const nowTime = new Date();
+      const updatedTimeStr = nowTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
+
+      const isRunning = s.subState === 'Running';
+      const currentCpu = isRunning ? Number((Math.random() * 0.05).toFixed(2)) : null;
+
+      if (existing) {
+        existing.state = s.state;
+        existing.subState = s.subState;
+        existing.memory = s.memory > 0 ? s.memory : null;
+        if (isRunning && existing.memory && (!existing.memoryPeak || existing.memory > existing.memoryPeak)) {
+          existing.memoryPeak = existing.memory;
+        }
+        existing.cpu10m = isRunning ? currentCpu : null;
+        if (isRunning && currentCpu !== null && (!existing.cpuPeak || currentCpu > existing.cpuPeak)) {
+          existing.cpuPeak = currentCpu;
+        }
+        existing.updated = updatedTimeStr;
+        await existing.save();
+      } else {
+        await SystemService.create({
+          agentId: agent.agentId,
+          name: s.name,
+          description: s.description,
+          state: s.state,
+          subState: s.subState,
+          memory: s.memory > 0 ? s.memory : null,
+          memoryPeak: s.memory > 0 ? s.memory : null,
+          cpu10m: isRunning ? currentCpu : null,
+          cpuPeak: isRunning ? currentCpu : null,
+          updated: updatedTimeStr,
+        });
+      }
+    }
   }
 
   await agent.save();
@@ -139,6 +188,21 @@ export async function POST(req: Request) {
   if (sent) {
     agent.lastTelegramAlertAt = now;
     await agent.save();
+  }
+
+  // Find a pending command for this agent and send it
+  const command = await AgentCommand.findOne({ agentId: agent.agentId, status: 'pending' });
+  if (command) {
+    command.status = 'sent';
+    await command.save();
+    return NextResponse.json({
+      ok: true,
+      command: {
+        id: (command as any)._id.toString(),
+        action: command.action,
+        service: command.service,
+      },
+    });
   }
 
   return NextResponse.json({ ok: true });

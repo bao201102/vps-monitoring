@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   AreaChart,
   Area,
@@ -12,8 +12,10 @@ import {
   Legend,
 } from 'recharts';
 import { format } from 'date-fns';
-import { MoreHorizontal } from 'lucide-react';
+import { MoreHorizontal, Loader2 } from 'lucide-react';
+import useSWR from 'swr';
 import { ContainerTable, ContainerData } from './ContainerTable';
+import { ContainerDetailPanel } from './ContainerDetailPanel';
 import { formatBytes, formatBps } from '@/lib/utils';
 
 interface MetricPoint {
@@ -25,83 +27,14 @@ interface MetricPoint {
 }
 
 interface ContainersTabProps {
+  agentId: string;
   metrics: MetricPoint[];
   isGridLayout: boolean;
+  agentLabel?: string;
+  agentHostname?: string;
 }
 
-// Container configurations with weights and metadata
-const CONTAINERS_META = [
-  {
-    name: 'n8n_app',
-    image: 'n8nio/n8n:latest',
-    ports: '127.0.0.1:5678',
-    status: 'Up 3 weeks',
-    health: 'None' as const,
-    cpuWeight: 0.90,
-    memWeight: 0.61,
-    netWeight: 0.95,
-    defaultCpu: 0.14,
-    defaultMem: 329.3 * 1024 * 1024,
-    defaultNet: 0.46 * 1024,
-    color: '#ea580c',
-  },
-  {
-    name: 'browserless',
-    image: 'ghcr.io/browserless/chrome:latest',
-    ports: '3001',
-    status: 'Up 3 weeks',
-    health: 'None' as const,
-    cpuWeight: 0.02,
-    memWeight: 0.362,
-    netWeight: 0.01,
-    defaultCpu: 0.00,
-    defaultMem: 195.2 * 1024 * 1024,
-    defaultNet: 0.0,
-    color: '#10b981',
-  },
-  {
-    name: 'epicgames-freegames-node',
-    image: 'ghcr.io/claabs/epicgames-freegames:latest',
-    ports: '1234',
-    status: 'Up 7 days',
-    health: 'None' as const,
-    cpuWeight: 0.02,
-    memWeight: 0.016,
-    netWeight: 0.01,
-    defaultCpu: 0.00,
-    defaultMem: 8.52 * 1024 * 1024,
-    defaultNet: 0.0,
-    color: '#3b82f6',
-  },
-  {
-    name: 'beszel-agent',
-    image: 'henrygd/beszel-agent',
-    ports: '',
-    status: 'Up 48 minutes',
-    health: 'None' as const,
-    cpuWeight: 0.05,
-    memWeight: 0.008,
-    netWeight: 0.02,
-    defaultCpu: 0.01,
-    defaultMem: 4.29 * 1024 * 1024,
-    defaultNet: 0.0,
-    color: '#8b5cf6',
-  },
-  {
-    name: 'dev_tools_app',
-    image: 'boris1120/dev-tools:latest',
-    ports: '8080',
-    status: 'Up 3 days',
-    health: 'None' as const,
-    cpuWeight: 0.01,
-    memWeight: 0.004,
-    netWeight: 0.01,
-    defaultCpu: 0.00,
-    defaultMem: 2.36 * 1024 * 1024,
-    defaultNet: 0.0,
-    color: '#eab308',
-  },
-];
+const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const chartTooltipStyle = {
   backgroundColor: 'rgb(var(--chart-tooltip-bg))',
@@ -114,7 +47,23 @@ const chartTooltipStyle = {
 const chartGridStroke = 'rgb(var(--chart-grid))';
 const chartAxisStroke = 'rgb(var(--chart-axis))';
 
-export function ContainersTab({ metrics, isGridLayout }: ContainersTabProps) {
+export function ContainersTab({
+  agentId,
+  metrics,
+  isGridLayout,
+  agentLabel,
+  agentHostname,
+}: ContainersTabProps) {
+  const [selectedContainer, setSelectedContainer] = useState<ContainerData | null>(null);
+
+  const { data, isLoading } = useSWR<{ containers: ContainerData[] }>(
+    `/api/containers?agentId=${agentId}`,
+    fetcher,
+    { refreshInterval: 5000 }
+  );
+
+  const containersMeta = data?.containers || [];
+
   // Format dates for XAxis
   const formatTime = (ts: string) => {
     try {
@@ -137,10 +86,10 @@ export function ContainersTab({ metrics, isGridLayout }: ContainersTabProps) {
     return metrics.map((m) => {
       const dataPoint: Record<string, unknown> = { ts: m.ts };
 
-      CONTAINERS_META.forEach((c) => {
-        const cCpu = m.dockerCpuPercent * c.cpuWeight;
-        const cMem = m.dockerMemUsedBytes * c.memWeight;
-        const cNet = (m.dockerNetRxBps + m.dockerNetTxBps) * c.netWeight;
+      containersMeta.forEach((c) => {
+        const cCpu = m.dockerCpuPercent * (c.cpuWeight ?? 0);
+        const cMem = m.dockerMemUsedBytes * (c.memWeight ?? 0);
+        const cNet = (m.dockerNetRxBps + m.dockerNetTxBps) * (c.netWeight ?? 0);
 
         dataPoint[`${c.name}_cpu`] = cCpu;
         dataPoint[`${c.name}_mem`] = cMem;
@@ -153,34 +102,24 @@ export function ContainersTab({ metrics, isGridLayout }: ContainersTabProps) {
 
       return dataPoint;
     });
-  }, [metrics]);
+  }, [metrics, containersMeta]);
 
   // Extract latest metrics for the table
+  const containersTableData = data?.containers || [];
+
   const latestMetric = metrics[metrics.length - 1];
-  const containersTableData = useMemo<ContainerData[]>(() => {
-    const updatedTime = latestMetric
-      ? format(new Date(latestMetric.ts), 'h:mm:ss a')
-      : format(new Date(), 'h:mm:ss a');
-
-    return CONTAINERS_META.map((c) => {
-      const hasMetric = latestMetric && (latestMetric.dockerCpuPercent > 0 || latestMetric.dockerMemUsedBytes > 0);
-      return {
-        name: c.name,
-        image: c.image,
-        ports: c.ports,
-        status: c.status,
-        health: c.health,
-        cpu: hasMetric ? latestMetric.dockerCpuPercent * c.cpuWeight : c.defaultCpu,
-        memory: hasMetric ? latestMetric.dockerMemUsedBytes * c.memWeight : c.defaultMem,
-        net: hasMetric ? (latestMetric.dockerNetRxBps + latestMetric.dockerNetTxBps) * c.netWeight : c.defaultNet,
-        updated: updatedTime,
-      };
-    });
-  }, [latestMetric]);
-
   const latestTotalCpu = latestMetric?.dockerCpuPercent ?? 0;
   const latestTotalMem = latestMetric?.dockerMemUsedBytes ?? 0;
   const latestTotalNet = (latestMetric?.dockerNetRxBps ?? 0) + (latestMetric?.dockerNetTxBps ?? 0);
+
+  if (isLoading || !data) {
+    return (
+      <div className="flex items-center justify-center py-24 text-ink-muted card">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin text-brand" />
+        Loading containers…
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -228,7 +167,7 @@ export function ContainersTab({ metrics, isGridLayout }: ContainersTabProps) {
                   }}
                 />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
-                {CONTAINERS_META.map((c) => (
+                {containersMeta.map((c) => (
                   <Area
                     key={c.name}
                     type="monotone"
@@ -288,7 +227,7 @@ export function ContainersTab({ metrics, isGridLayout }: ContainersTabProps) {
                   }}
                 />
                 <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
-                {CONTAINERS_META.map((c) => (
+                {containersMeta.map((c) => (
                   <Area
                     key={c.name}
                     type="monotone"
@@ -349,7 +288,7 @@ export function ContainersTab({ metrics, isGridLayout }: ContainersTabProps) {
                 }}
               />
               <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '10px', paddingTop: '10px' }} />
-              {CONTAINERS_META.map((c) => (
+              {containersMeta.map((c) => (
                 <Area
                   key={c.name}
                   type="monotone"
@@ -368,7 +307,17 @@ export function ContainersTab({ metrics, isGridLayout }: ContainersTabProps) {
       </div>
 
       {/* Table listing all containers */}
-      <ContainerTable containers={containersTableData} />
+      <ContainerTable
+        containers={containersTableData}
+        selectedContainer={selectedContainer}
+        onSelectContainer={setSelectedContainer}
+      />
+      {selectedContainer && (
+        <ContainerDetailPanel
+          container={selectedContainer}
+          onClose={() => setSelectedContainer(null)}
+        />
+      )}
     </div>
   );
 }

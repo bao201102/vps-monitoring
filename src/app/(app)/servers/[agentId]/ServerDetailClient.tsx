@@ -11,7 +11,7 @@ import {
   Trash2,
   Cpu,
   HardDrive,
-  Terminal,
+  Container,
   Settings,
   LayoutGrid,
   Maximize2,
@@ -25,6 +25,7 @@ import { formatBytes, formatUptime, timeAgo } from '@/lib/utils';
 import { CoreTab } from '@/components/CoreTab';
 import { DiskTab } from '@/components/DiskTab';
 import { ContainersTab } from '@/components/ContainersTab';
+import { ServicesTab } from '@/components/ServicesTab';
 
 interface AgentDetail {
   agentId: string;
@@ -113,12 +114,12 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [range, setRange] = useState('1h');
-  const [activeTab, setActiveTab] = useState<'core' | 'disk' | 'containers'>('core');
+  const [activeTab, setActiveTab] = useState<'core' | 'disk' | 'containers' | 'service'>('core');
 
   // Sync tab from search params
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'core' || tabParam === 'disk' || tabParam === 'containers') {
+    if (tabParam === 'core' || tabParam === 'disk' || tabParam === 'containers' || tabParam === 'service') {
       setActiveTab(tabParam);
     }
   }, [searchParams]);
@@ -203,7 +204,8 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
   const tabs = [
     { id: 'core' as const, label: 'Core', icon: Cpu },
     { id: 'disk' as const, label: 'Disk', icon: HardDrive },
-    { id: 'containers' as const, label: 'Containers', icon: Terminal },
+    { id: 'containers' as const, label: 'Containers', icon: Container },
+    { id: 'service' as const, label: 'Service', icon: Layers },
   ];
 
   return (
@@ -448,8 +450,18 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
             )}
             {activeTab === 'containers' && (
               <ContainersTab
+                agentId={agent.agentId}
                 metrics={metrics}
                 isGridLayout={isGridLayout}
+                agentLabel={agent.label}
+                agentHostname={agent.hostname}
+              />
+            )}
+            {activeTab === 'service' && (
+              <ServicesTab
+                agentId={agent.agentId}
+                agentLabel={agent.label}
+                agentHostname={agent.hostname}
               />
             )}
           </>
@@ -488,12 +500,30 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
             {/* Containers Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1 text-sm font-bold text-ink tracking-tight">
-                <Terminal className="h-4 w-4 text-[#3b82f6]" />
+                <Container className="h-4 w-4 text-[#3b82f6]" />
                 <span>Docker Containers</span>
               </div>
               <ContainersTab
+                agentId={agent.agentId}
                 metrics={metrics}
                 isGridLayout={isGridLayout}
+                agentLabel={agent.label}
+                agentHostname={agent.hostname}
+              />
+            </div>
+
+            <div className="border-t border-[#1f1f23] my-6" />
+
+            {/* Services Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-1 text-sm font-bold text-ink tracking-tight">
+                <Layers className="h-4 w-4 text-[#3b82f6]" />
+                <span>System Services</span>
+              </div>
+              <ServicesTab
+                agentId={agent.agentId}
+                agentLabel={agent.label}
+                agentHostname={agent.hostname}
               />
             </div>
           </>

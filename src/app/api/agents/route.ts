@@ -3,6 +3,7 @@ import { getUserResolvedAlertSettings } from '@/lib/user-settings';
 import { connectDB } from '@/lib/db';
 import { Agent } from '@/lib/models/Agent';
 import { Metric } from '@/lib/models/Metric';
+import { SystemService } from '@/lib/models/SystemService';
 import { getSessionFromCookies } from '@/lib/auth';
 import { env } from '@/lib/env';
 import {
@@ -32,6 +33,18 @@ export async function GET() {
   const latestMap = new Map<string, (typeof latest)[number]['metric']>();
   for (const item of latest) latestMap.set(item._id, item.metric);
 
+  // Fetch all service configurations for these agents from the DB
+  const dbServices = await SystemService.find({ agentId: { $in: ids } }).lean();
+  const servicesMap = new Map<string, { total: number; failed: number }>();
+  for (const s of dbServices) {
+    const entry = servicesMap.get(s.agentId) || { total: 0, failed: 0 };
+    entry.total += 1;
+    if (s.state === 'Failed' || s.subState === 'Failed') {
+      entry.failed += 1;
+    }
+    servicesMap.set(s.agentId, entry);
+  }
+
   const offlineMs = env.AGENT_OFFLINE_AFTER_SECONDS * 1000;
   const now = Date.now();
   const offlineAlertAt = new Date();
@@ -40,6 +53,21 @@ export async function GET() {
     const m = latestMap.get(a.agentId);
     const online =
       a.lastSeenAt && now - new Date(a.lastSeenAt).getTime() <= offlineMs ? true : false;
+
+    const servInfo = servicesMap.get(a.agentId);
+    let servicesCount = servInfo?.total ?? 0;
+    let servicesFailedCount = servInfo?.failed ?? 0;
+
+    // Fallback for mock systems if no data is in DB yet
+    if (servicesCount === 0) {
+      if (a.agentId === 'instance-20260414-1357') {
+        servicesCount = 8;
+        servicesFailedCount = 1;
+      } else if (a.agentId === 'monitoring') {
+        servicesCount = 7;
+        servicesFailedCount = 0;
+      }
+    }
     return {
       agentId: a.agentId,
       hostname: a.hostname,
@@ -58,6 +86,8 @@ export async function GET() {
       online,
       lastSeenAt: a.lastSeenAt,
       registeredAt: a.registeredAt,
+      servicesCount,
+      servicesFailedCount,
       latest: m
         ? {
             ts: m.ts,

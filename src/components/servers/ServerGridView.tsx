@@ -98,8 +98,11 @@ export function ServerGridView({ servers, visibleFields, onRefresh }: ServerGrid
         const temp = s.latest?.temperatureC ? `${s.latest.temperatureC.toFixed(0)}°C` : '—';
         const bat = '—';
 
-        const containerCount = s.latest?.dockerContainerCount ?? 0;
-        const servicesStr = containerCount > 0 ? `${containerCount + 5} (failed: 0)` : '—';
+        const servicesCount = s.servicesCount ?? 0;
+        const servicesFailedCount = s.servicesFailedCount ?? 0;
+        const servicesStr = servicesCount > 0
+          ? `${servicesCount} (failed: ${servicesFailedCount})`
+          : '—';
 
         const uptime = s.latest?.uptimeSeconds
           ? `${Math.floor(s.latest.uptimeSeconds / 86400)} days`

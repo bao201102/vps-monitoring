@@ -304,6 +304,52 @@ read_gpu() {
   fi
 }
 
+read_services() {
+  if ! command -v systemctl >/dev/null 2>&1; then
+    echo "[]"
+    return
+  fi
+
+  local services_json="[]"
+  while IFS= read -r service_name; do
+    [ -z "$service_name" ] && continue
+    
+    local desc="" active="" sub="" mem=0
+    while IFS= read -r line; do
+      case "$line" in
+        Description=*) desc="${line#Description=}" ;;
+        ActiveState=*) active="${line#ActiveState=}" ;;
+        SubState=*) sub="${line#SubState=}" ;;
+        MemoryCurrent=*) 
+          mem="${line#MemoryCurrent=}"
+          if [ "$mem" = "[not set]" ] || [ -z "$mem" ] || [ "$mem" = "N/A" ]; then mem=0; fi
+          ;;
+      esac
+    done < <(systemctl show "$service_name" -p Description -p ActiveState -p SubState -p MemoryCurrent 2>/dev/null)
+    
+    local clean_name="${service_name%.service}"
+    
+    local state_cap="Inactive"
+    if [ "$active" = "active" ]; then state_cap="Active"; fi
+    if [ "$active" = "failed" ] || [ "$sub" = "failed" ]; then state_cap="Failed"; fi
+    
+    local sub_cap="Dead"
+    if [ "$sub" = "running" ]; then sub_cap="Running"; fi
+    if [ "$sub" = "exited" ]; then sub_cap="Exited"; fi
+    if [ "$sub" = "failed" ]; then sub_cap="Failed"; fi
+
+    services_json=$(echo "$services_json" | jq \
+      --arg name "$clean_name" \
+      --arg desc "$desc" \
+      --arg state "$state_cap" \
+      --arg subState "$sub_cap" \
+      --argjson mem "$mem" \
+      '. += [{name:$name, description:$desc, state:$state, subState:$subState, memory:$mem}]')
+  done < <(systemctl list-units --type=service --no-legend --all | awk '{print $1}' | head -n 40)
+
+  echo "$services_json"
+}
+
 send_status() {
   local status="$1"
   local payload
@@ -401,6 +447,8 @@ while true; do
   TEMP_C="$(read_temperature_c)"
   read GPU_UTIL GPU_MEM_USED GPU_MEM_TOTAL GPU_POWER <<<"$(read_gpu)"
 
+  SERVICES_DATA="$(read_services)"
+
   PAYLOAD=$(jq -n \
     --arg agentId "$AGENT_ID" \
     --arg token   "$AGENT_TOKEN" \
@@ -432,11 +480,43 @@ while true; do
     --argjson gpuPowerWatts "$GPU_POWER" \
     --argjson uptimeSeconds "$UPTIME" \
     --argjson processCount  "$PROC_COUNT" \
-    '{agentId:$agentId, token:$token, cpuPercent:$cpuPercent, loadAvg1:$loadAvg1, loadAvg5:$loadAvg5, loadAvg15:$loadAvg15, memUsedBytes:$memUsedBytes, memTotalBytes:$memTotalBytes, swapUsedBytes:$swapUsedBytes, swapTotalBytes:$swapTotalBytes, diskUsedBytes:$diskUsedBytes, diskTotalBytes:$diskTotalBytes, diskReadBps:$diskReadBps, diskWriteBps:$diskWriteBps, netRxBytes:$netRxBytes, netTxBytes:$netTxBytes, netRxBps:$netRxBps, netTxBps:$netTxBps, dockerCpuPercent:$dockerCpuPercent, dockerMemUsedBytes:$dockerMemUsedBytes, dockerNetRxBps:$dockerNetRxBps, dockerNetTxBps:$dockerNetTxBps, dockerContainerCount:$dockerContainerCount, temperatureC:$temperatureC, gpuUtilPercent:$gpuUtilPercent, gpuMemUsedBytes:$gpuMemUsedBytes, gpuMemTotalBytes:$gpuMemTotalBytes, gpuPowerWatts:$gpuPowerWatts, uptimeSeconds:$uptimeSeconds, processCount:$processCount}')
+    --argjson services      "$SERVICES_DATA" \
+    '{agentId:$agentId, token:$token, cpuPercent:$cpuPercent, loadAvg1:$loadAvg1, loadAvg5:$loadAvg5, loadAvg15:$loadAvg15, memUsedBytes:$memUsedBytes, memTotalBytes:$memTotalBytes, swapUsedBytes:$swapUsedBytes, swapTotalBytes:$swapTotalBytes, diskUsedBytes:$diskUsedBytes, diskTotalBytes:$diskTotalBytes, diskReadBps:$diskReadBps, diskWriteBps:$diskWriteBps, netRxBytes:$netRxBytes, netTxBytes:$netTxBytes, netRxBps:$netRxBps, netTxBps:$netTxBps, dockerCpuPercent:$dockerCpuPercent, dockerMemUsedBytes:$dockerMemUsedBytes, dockerNetRxBps:$dockerNetRxBps, dockerNetTxBps:$dockerNetTxBps, dockerContainerCount:$dockerContainerCount, temperatureC:$temperatureC, gpuUtilPercent:$gpuUtilPercent, gpuMemUsedBytes:$gpuMemUsedBytes, gpuMemTotalBytes:$gpuMemTotalBytes, gpuPowerWatts:$gpuPowerWatts, uptimeSeconds:$uptimeSeconds, processCount:$processCount, services:$services}')
 
-  curl -fsS --max-time 10 -X POST "$SERVER_URL/api/agents/heartbeat" \
+  RESP=$(curl -fsS --max-time 10 -X POST "$SERVER_URL/api/agents/heartbeat" \
     -H 'Content-Type: application/json' \
-    -d "$PAYLOAD" >/dev/null 2>&1 || true
+    -d "$PAYLOAD" 2>/dev/null || true)
+
+  if [ -n "$RESP" ]; then
+    CMD_ID=$(echo "$RESP" | jq -r '.command.id // empty')
+    CMD_ACTION=$(echo "$RESP" | jq -r '.command.action // empty')
+    CMD_SERVICE=$(echo "$RESP" | jq -r '.command.service // empty')
+
+    if [ -n "$CMD_ID" ] && [ -n "$CMD_ACTION" ] && [ -n "$CMD_SERVICE" ]; then
+      CMD_STATUS="done"
+      if [ "$CMD_ACTION" = "start" ]; then
+        systemctl start "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
+      elif [ "$CMD_ACTION" = "stop" ]; then
+        systemctl stop "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
+      elif [ "$CMD_ACTION" = "restart" ]; then
+        systemctl restart "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
+      else
+        CMD_STATUS="failed"
+      fi
+
+      # Send command execution status back to server
+      STATUS_PAYLOAD=$(jq -n \
+        --arg agentId "$AGENT_ID" \
+        --arg token "$AGENT_TOKEN" \
+        --arg commandId "$CMD_ID" \
+        --arg status "$CMD_STATUS" \
+        '{agentId:$agentId, token:$token, commandId:$commandId, status:$status}')
+
+      curl -fsS --max-time 10 -X POST "$SERVER_URL/api/agents/command-status" \
+        -H 'Content-Type: application/json' \
+        -d "$STATUS_PAYLOAD" >/dev/null 2>&1 || true
+    fi
+  fi
 
   sleep "$INTERVAL"
 done
