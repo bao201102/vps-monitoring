@@ -14,11 +14,14 @@
 - **One-line install** on any VPS (Ubuntu, Debian, CentOS, Rocky, Alma, Fedora, Arch, Alpine…)
 - **Auto-registration** — no SSH keys, no copy-pasting tokens. Just run the install command.
 - **Live metrics** every 15s: CPU, memory, swap, disk, network, load avg, uptime, processes.
+- **Docker Container Management** — Real-time resource metrics (CPU, RAM, network) for containers, container states/health, inspection details, and live logs viewing.
+- **Systemd Services Control** — View active services list, monitor CPU/memory per service, and start, stop, or restart services directly from the dashboard.
 - **Beautiful dark dashboard** with real-time charts (Recharts).
 - **Single-admin model** — no public sign-ups. The first account becomes admin.
+- **Multi-user isolation & Admin capabilities** — Supports user-isolated installations on the same VPS, and includes an admin panel to manage users and view registered agents.
 - **Self-hosted** — your metrics live in your MongoDB, not someone else's cloud.
 - **Tiny agent** — pure bash, no compiled binaries, ~5 MB RAM footprint.
-- **Telegram alerts** — optional notify when CPU, RAM, or disk usage crosses thresholds (per-server cooldown).
+- **Telegram Alerts & Testing** — Configure thresholds for notifications and test your connection instantly with a test alert button (per-server cooldown).
 
 ## 🚀 Quick start (Docker)
 
@@ -152,6 +155,16 @@ Configure the bot token, chat id, thresholds (CPU, RAM, disk `/`), and per-serve
 | PATCH  | `/api/agents/:id`               | session     | Update label/tags.                |
 | DELETE | `/api/agents/:id`               | session     | Remove agent + metrics.           |
 | GET    | `/api/agents/:id/metrics`       | session     | Time-series metrics.              |
+| GET    | `/api/agents/:id/services`      | session     | List system services.             |
+| POST   | `/api/agents/:id/services`      | session     | Execute service command (start/stop/restart). |
+| POST   | `/api/agents/command-status`    | agent token | Update command execution status.  |
+| GET    | `/api/containers`               | session     | List all containers and metrics.  |
+| GET    | `/api/containers/detail`        | session     | Get container logs & details.     |
+| GET    | `/api/settings/alerts`          | session     | Get Telegram alert settings.      |
+| PUT    | `/api/settings/alerts`          | session     | Update Telegram alert settings.   |
+| POST   | `/api/settings/alerts/test`     | session     | Test Telegram alert configuration.|
+| GET    | `/api/admin/users`              | session/adm | List all users (admin only).      |
+| DELETE | `/api/admin/users/:userId`      | session/adm | Delete a user & resources.        |
 
 ## 📄 License
 

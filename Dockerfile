@@ -3,10 +3,6 @@
 FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
-
 COPY package.json package-lock.json ./
 
 ENV NPM_CONFIG_FUND=false
@@ -14,23 +10,20 @@ ENV NPM_CONFIG_AUDIT=false
 # Lower concurrency reduces peak RAM during install (helps small CI builders).
 ENV npm_config_maxsockets=3
 
-# `npm ci` can trigger npm bugs / OOM on constrained hosts; install from lock is OK for images.
-RUN npm install --no-audit --no-fund
+# Use cache mount to speed up package installation on rebuild
+RUN --mount=type=cache,target=/root/.npm npm install --no-audit --no-fund
 
 FROM node:20-bookworm-slim AS builder
 WORKDIR /app
-
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_OPTIONS=--max-old-space-size=8192
+# 4GB RAM limit is safer for smaller build hosts (prevents OOM)
+ENV NODE_OPTIONS=--max-old-space-size=4096
 
-RUN npm run build
+RUN --mount=type=cache,target=/app/.next/cache npm run build
 
 FROM node:20-bookworm-slim AS runner
 WORKDIR /app
@@ -38,10 +31,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates \
-  && rm -rf /var/lib/apt/lists/* \
-  && groupadd --system --gid 1001 nodejs \
+# Remove redundant ca-certificates installation (already in slim image), only create user/group to run as non-root
+RUN groupadd --system --gid 1001 nodejs \
   && useradd --system --uid 1001 --gid nodejs nextjs
 
 COPY --from=builder /app/public ./public

@@ -8,7 +8,7 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  # Job 1: Kiểm tra chất lượng mã nguồn (Lint)
+  # Job 1: Source code lint check
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -27,16 +27,13 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
-  # Job 2: Build Docker Image và Push lên Docker Hub (Chỉ chạy sau khi Lint thành công)
+  # Job 2: Build Docker Image and Push to Docker Hub (Runs after Lint succeeds)
   build-and-push:
     needs: lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -51,13 +48,14 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          # Build natively on the ARM64 runner, reducing build time from 10-15 mins to 1-2 mins.
           platforms: linux/arm64
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/vps-monitoring:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-  # Job 3: Deploy lên VPS thông qua SSH (Chỉ chạy sau khi Build thành công)
+  # Job 3: Deploy to VPS via SSH (Runs after Build succeeds)
   deploy:
     needs: build-and-push
     runs-on: ubuntu-latest
@@ -74,7 +72,7 @@ jobs:
             sudo docker compose up -d
             sudo docker image prune -f
 
-  # Job 4: Gửi thông báo kết quả lên Telegram (Luôn chạy sau khi hoàn thành quy trình)
+  # Job 4: Send result notification to Telegram (Always runs)
   notify-telegram:
     needs: [lint, build-and-push, deploy]
     runs-on: ubuntu-latest
@@ -82,34 +80,43 @@ jobs:
     steps:
       - name: Send Telegram notification
         run: |
+          # Fix the bug where status was always success: check actual results of the 3 upstream jobs
+          STATUS_UPPER="SUCCESS"
           STATUS_EMOJI="✅"
-          if [ "${{ needs.deploy.result }}" != "success" ]; then
+          
+          if [ "${{ needs.lint.result }}" != "success" ] || [ "${{ needs.build-and-push.result }}" != "success" ] || [ "${{ needs.deploy.result }}" != "success" ]; then
+            STATUS_UPPER="FAILURE"
             STATUS_EMOJI="❌"
           fi
           
-          STATUS_UPPER=$(echo "${{ job.status }}" | tr '[:lower:]' '[:upper:]')
           TIMESTAMP=$(TZ='Asia/Ho_Chi_Minh' date +"%Y-%m-%d %H:%M:%S")
           
-          # Calculate duration
+          # Calculate duration from commit timestamp to completion
           START_TIME=$(date -d "${{ github.event.head_commit.timestamp }}" +%s)
           END_TIME=$(date +%s)
           DURATION=$((END_TIME - START_TIME))
           MINUTES=$((DURATION / 60))
-          SECONDS=$((DURATION % 60))
+          Next_SECONDS=$((DURATION % 60))
           
           MESSAGE="${STATUS_EMOJI} *${STATUS_UPPER}* ${TIMESTAMP}
           
           Repository: \`${{ github.repository }}\`
           Build: #${{ github.run_number }}
-          Duration: ${MINUTES}m ${SECONDS}s
-
+          Duration: ${MINUTES}m ${Next_SECONDS}s
+          
           [View Workflow Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})"
+          
+          # Safely check if TELEGRAM_TOPIC_ID is empty to prevent JSON syntax errors
+          TOPIC_JSON=""
+          if [ -n "${{ secrets.TELEGRAM_TOPIC_ID }}" ]; then
+            TOPIC_JSON="\"message_thread_id\": ${{ secrets.TELEGRAM_TOPIC_ID }},"
+          fi
           
           curl -X POST "https://api.telegram.org/bot${{ secrets.TELEGRAM_BOT_TOKEN }}/sendMessage" \
             -H "Content-Type: application/json" \
             -d "{
+              ${TOPIC_JSON}
               \"chat_id\": \"${{ secrets.TELEGRAM_CHAT_ID }}\",
-              \"message_thread_id\": ${{ secrets.TELEGRAM_TOPIC_ID }},
               \"text\": \"${MESSAGE}\",
               \"parse_mode\": \"Markdown\",
               \"disable_web_page_preview\": true
