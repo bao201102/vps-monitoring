@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 export default async function DocsPage() {
   const session = await getSessionFromCookies();
   const userId = session?.sub ?? '';
-  const cmd = `curl -fsSL ${env.APP_URL.replace(/\/$/, '')}/api/install?interval=15&userId=${userId} | sudo bash`;
+  const cmd = `curl -fsSL "${env.APP_URL.replace(/\/$/, '')}/api/install?interval=15&userId=${userId}" | sudo bash`;
   return (
     <div className="space-y-6">
       <div>

@@ -2,9 +2,43 @@ node_modules
 .next
 .git
 .gitignore
+.gitattributes
+.github
 README.md
 Dockerfile
 docker-compose.yml
 .env
 .env.local
+.env*.local
+.env.production
+.env.development
 *.log
+
+# TypeScript
+*.tsbuildinfo
+
+# OS / System
+Thumbs.db
+.DS_Store
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDEs
+.idea/
+.vscode/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Build outputs & Coverage
+out
+dist
+build
+coverage

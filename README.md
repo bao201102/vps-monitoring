@@ -61,7 +61,7 @@ If you keep `docker compose up -d` (with the bundled `mongo` service), you can s
 In the dashboard, click **Add server**. Copy the install command and run it on your VPS:
 
 ```bash
-curl -fsSL https://monitor.yourdomain.com/api/install?userId=YOUR_USER_ID | sudo bash
+curl -fsSL "https://monitor.yourdomain.com/api/install?userId=YOUR_USER_ID" | sudo bash
 ```
 
 The VPS will:

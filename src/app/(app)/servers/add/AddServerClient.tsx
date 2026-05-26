@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 export function AddServerClient({ appUrl, userId }: { appUrl: string; userId: string }) {
   const [interval, setInterval] = useState(15);
   const installUrl = `${appUrl.replace(/\/$/, '')}/api/install?interval=${interval}&userId=${userId}`;
-  const command = `curl -fsSL ${installUrl} | sudo bash`;
+  const command = `curl -fsSL "${installUrl}" | sudo bash`;
   const [copied, setCopied] = useState(false);
 
   const copy = async () => {
