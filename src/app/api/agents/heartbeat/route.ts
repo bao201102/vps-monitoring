@@ -7,6 +7,7 @@ import { Agent } from '@/lib/models/Agent';
 import { Metric } from '@/lib/models/Metric';
 import { AgentCommand } from '@/lib/models/AgentCommand';
 import { SystemService } from '@/lib/models/SystemService';
+import { DockerContainer } from '@/lib/models/DockerContainer';
 import { sendTelegramDisconnectIfNeeded, sendTelegramOverloadIfNeeded } from '@/lib/telegram-alerts';
 
 export const runtime = 'nodejs';
@@ -51,7 +52,41 @@ const schema = z.object({
     subState: z.string().default('Dead'),
     memory: z.number().default(0),
   })).optional(),
+  containers: z.array(z.object({
+    name: z.string(),
+    image: z.string(),
+    ports: z.string().default(''),
+    status: z.string().default(''),
+    health: z.string().default('None'),
+    cpuPercent: z.number().default(0),
+    memUsedBytes: z.number().default(0),
+    netRxBps: z.number().default(0),
+    netTxBps: z.number().default(0),
+    logs: z.array(z.string()).default([]),
+    details: z.record(z.any()).default({}),
+  })).optional(),
 });
+
+const PALETTE = [
+  '#ea580c', // Orange
+  '#8b5cf6', // Violet
+  '#3b82f6', // Blue
+  '#eab308', // Yellow
+  '#10b981', // Emerald
+  '#ec4899', // Pink
+  '#06b6d4', // Cyan
+  '#f43f5e', // Rose
+  '#a855f7', // Purple
+  '#14b8a6'  // Teal
+];
+
+function getDeterministicColor(name: string): string {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return PALETTE[Math.abs(hash) % PALETTE.length];
+}
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
@@ -135,6 +170,48 @@ export async function POST(req: Request) {
         });
       }
     }
+  }
+
+  // Process and update DockerContainer records from the heartbeat payload
+  if (parsed.data.containers) {
+    const activeNames = parsed.data.containers.map(c => c.name);
+    
+    // Remove containers that are no longer reported by this agent
+    await DockerContainer.deleteMany({ agentId: agent.agentId, name: { $nin: activeNames } });
+
+    const totalCpu = parsed.data.dockerCpuPercent;
+    const totalMem = parsed.data.dockerMemUsedBytes;
+    const totalNet = parsed.data.dockerNetRxBps + parsed.data.dockerNetTxBps;
+
+    for (const c of parsed.data.containers) {
+      const cpuWeight = totalCpu > 0 ? c.cpuPercent / totalCpu : 0;
+      const memWeight = totalMem > 0 ? c.memUsedBytes / totalMem : 0;
+      const netWeight = totalNet > 0 ? (c.netRxBps + c.netTxBps) / totalNet : 0;
+      const health = c.health === 'Healthy' || c.health === 'Unhealthy' ? c.health : 'None';
+
+      await DockerContainer.findOneAndUpdate(
+        { agentId: agent.agentId, name: c.name },
+        {
+          image: c.image,
+          ports: c.ports,
+          status: c.status,
+          health,
+          cpuWeight: Number(cpuWeight.toFixed(4)),
+          memWeight: Number(memWeight.toFixed(4)),
+          netWeight: Number(netWeight.toFixed(4)),
+          defaultCpu: c.cpuPercent,
+          defaultMem: c.memUsedBytes,
+          defaultNet: c.netRxBps + c.netTxBps,
+          color: getDeterministicColor(c.name),
+          logs: c.logs,
+          details: c.details,
+        },
+        { upsert: true, new: true }
+      );
+    }
+  } else if (parsed.data.dockerContainerCount === 0) {
+    // Clean up if agent explicitly reports 0 container count
+    await DockerContainer.deleteMany({ agentId: agent.agentId });
   }
 
   await agent.save();

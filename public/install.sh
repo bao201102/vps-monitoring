@@ -152,7 +152,8 @@ CONFIG_FILE="${1:-$SCRIPT_DIR/agent.conf}"
 PREV_RX=0; PREV_TX=0; PREV_TS=0
 PREV_CPU_TOTAL=0; PREV_CPU_IDLE=0
 PREV_DISK_READ=0; PREV_DISK_WRITE=0
-PREV_DOCKER_RX=0; PREV_DOCKER_TX=0
+declare -A PREV_CONT_RX
+declare -A PREV_CONT_TX
 
 read_cpu() {
   read -r _ user nice system idle iowait irq softirq steal _ < /proc/stat
@@ -221,28 +222,108 @@ read_disk_io() {
   echo "$read_bytes $write_bytes"
 }
 
-read_docker() {
+read_docker_containers() {
   if ! command -v docker >/dev/null 2>&1; then
-    echo "0 0 0 0 0"
+    echo "[]"
     return
   fi
 
-  local cpu="0" mem=0 rx=0 tx=0 count=0
-  while IFS='|' read -r cpu_raw mem_raw net_raw; do
-    [ -z "$cpu_raw$mem_raw$net_raw" ] && continue
-    count=$((count + 1))
-    cpu_raw="${cpu_raw%\%}"
-    cpu=$(awk -v a="$cpu" -v b="${cpu_raw:-0}" 'BEGIN { printf "%.2f", a + b }')
+  local stats_data
+  stats_data=$(timeout 5 docker stats --no-stream --format '{{.Name}}|{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}' 2>/dev/null || true)
 
-    local mem_current="${mem_raw%% / *}"
-    local rx_current="${net_raw%% / *}"
-    local tx_current="${net_raw##* / }"
-    mem=$(( mem + $(to_bytes "$mem_current") ))
-    rx=$(( rx + $(to_bytes "$rx_current") ))
-    tx=$(( tx + $(to_bytes "$tx_current") ))
-  done < <(timeout 5 docker stats --no-stream --format '{{.CPUPerc}}|{{.MemUsage}}|{{.NetIO}}' 2>/dev/null || true)
+  local ps_data
+  ps_data=$(docker ps -a --format '{{.Names}}|{{.Image}}|{{.Ports}}|{{.Status}}' 2>/dev/null || true)
 
-  echo "$cpu $mem $rx $tx $count"
+  local json_payload="[]"
+
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    
+    local name image ports status
+    name=$(echo "$line" | cut -d'|' -f1)
+    image=$(echo "$line" | cut -d'|' -f2)
+    ports=$(echo "$line" | cut -d'|' -f3)
+    status=$(echo "$line" | cut -d'|' -f4)
+
+    [ -z "$name" ] && continue
+
+    local health="None"
+    if [[ "$status" == *"(healthy)"* ]]; then
+      health="Healthy"
+    elif [[ "$status" == *"(unhealthy)"* ]]; then
+      health="Unhealthy"
+    fi
+
+    local cpu="0"
+    local mem=0
+    local rx_bps=0
+    local tx_bps=0
+
+    local stats_line
+    stats_line=$(echo "$stats_data" | grep "^${name}|" || true)
+    if [ -n "$stats_line" ]; then
+      local stats_cpu stats_mem stats_net
+      stats_cpu=$(echo "$stats_line" | cut -d'|' -f2 | tr -d '% ')
+      stats_mem=$(echo "$stats_line" | cut -d'|' -f3)
+      stats_net=$(echo "$stats_line" | cut -d'|' -f4)
+
+      cpu="${stats_cpu:-0}"
+      cpu=$(echo "$cpu" | tr -d ' %')
+      [ -z "$cpu" ] && cpu="0"
+
+      local mem_current="${stats_mem%% / *}"
+      mem=$(to_bytes "$mem_current")
+
+      local rx_raw="${stats_net%% / *}"
+      local tx_raw="${stats_net##* / }"
+      local rx_bytes=$(to_bytes "$rx_raw")
+      local tx_bytes=$(to_bytes "$tx_raw")
+
+      local prev_rx=0
+      local prev_tx=0
+      if [[ -v PREV_CONT_RX[$name] ]]; then
+        prev_rx=${PREV_CONT_RX[$name]}
+      fi
+      if [[ -v PREV_CONT_TX[$name] ]]; then
+        prev_tx=${PREV_CONT_TX[$name]}
+      fi
+
+      if [ "$prev_rx" -gt 0 ] && [ "$ELAPSED" -gt 0 ]; then
+        local rx_delta=$(( rx_bytes - prev_rx ))
+        [ "$rx_delta" -lt 0 ] && rx_delta=0
+        rx_bps=$(( rx_delta / ELAPSED ))
+      fi
+      if [ "$prev_tx" -gt 0 ] && [ "$ELAPSED" -gt 0 ]; then
+        local tx_delta=$(( tx_bytes - prev_tx ))
+        [ "$tx_delta" -lt 0 ] && tx_delta=0
+        tx_bps=$(( tx_delta / ELAPSED ))
+      fi
+
+      PREV_CONT_RX[$name]=$rx_bytes
+      PREV_CONT_TX[$name]=$tx_bytes
+    fi
+
+    local logs_json="[]"
+    logs_json=$(timeout 3 docker logs --tail 20 "$name" 2>/dev/null | jq -R . | jq -s . || echo "[]")
+
+    local inspect_json="{}"
+    inspect_json=$(timeout 3 docker inspect --format '{{json .}}' "$name" 2>/dev/null | jq '{AppArmorProfile, Args, Config, State, NetworkSettings}' 2>/dev/null || echo "{}")
+
+    json_payload=$(jq --arg name "$name" \
+                      --arg image "$image" \
+                      --arg ports "$ports" \
+                      --arg status "$status" \
+                      --arg health "$health" \
+                      --argjson cpu "$cpu" \
+                      --argjson mem "$mem" \
+                      --argjson rx "$rx_bps" \
+                      --argjson tx "$tx_bps" \
+                      --argjson logs "$logs_json" \
+                      --argjson details "$inspect_json" \
+                      '. += [{name:$name, image:$image, ports:$ports, status:$status, health:$health, cpuPercent:$cpu, memUsedBytes:$mem, netRxBps:$rx, netTxBps:$tx, logs:$logs, details:$details}]' <<< "$json_payload")
+  done <<< "$ps_data"
+
+  echo "$json_payload"
 }
 
 read_temperature_c() {
@@ -310,13 +391,41 @@ read_services() {
     return
   fi
 
-  local services_json="[]"
-  while IFS= read -r service_name; do
-    [ -z "$service_name" ] && continue
-    
-    local desc="" active="" sub="" mem=0
+  local services
+  services=$(systemctl list-units --type=service --no-legend --all | awk '{print $1}' || true)
+  if [ -z "$services" ]; then
+    echo "[]"
+    return
+  fi
+
+  # Query all services details in one command to keep it fast
+  # shellcheck disable=SC2086
+  local show_output
+  show_output=$(systemctl show $services -p Id -p Description -p ActiveState -p SubState -p MemoryCurrent 2>/dev/null || true)
+
+  local raw_data
+  raw_data=$(
+    local name="" desc="" active="" sub="" mem=0
     while IFS= read -r line; do
+      if [ -z "$line" ]; then
+        if [ -n "$name" ]; then
+          local clean_name="${name%.service}"
+          local state_cap="Inactive"
+          if [ "$active" = "active" ]; then state_cap="Active"; fi
+          if [ "$active" = "failed" ] || [ "$sub" = "failed" ]; then state_cap="Failed"; fi
+          
+          local sub_cap="Dead"
+          if [ "$sub" = "running" ]; then sub_cap="Running"; fi
+          if [ "$sub" = "exited" ]; then sub_cap="Exited"; fi
+          if [ "$sub" = "failed" ]; then sub_cap="Failed"; fi
+
+          echo "$clean_name|$desc|$state_cap|$sub_cap|$mem"
+        fi
+        name=""; desc=""; active=""; sub=""; mem=0
+        continue
+      fi
       case "$line" in
+        Id=*) name="${line#Id=}" ;;
         Description=*) desc="${line#Description=}" ;;
         ActiveState=*) active="${line#ActiveState=}" ;;
         SubState=*) sub="${line#SubState=}" ;;
@@ -325,27 +434,29 @@ read_services() {
           if [ "$mem" = "[not set]" ] || [ -z "$mem" ] || [ "$mem" = "N/A" ]; then mem=0; fi
           ;;
       esac
-    done < <(systemctl show "$service_name" -p Description -p ActiveState -p SubState -p MemoryCurrent 2>/dev/null)
-    
-    local clean_name="${service_name%.service}"
-    
-    local state_cap="Inactive"
-    if [ "$active" = "active" ]; then state_cap="Active"; fi
-    if [ "$active" = "failed" ] || [ "$sub" = "failed" ]; then state_cap="Failed"; fi
-    
-    local sub_cap="Dead"
-    if [ "$sub" = "running" ]; then sub_cap="Running"; fi
-    if [ "$sub" = "exited" ]; then sub_cap="Exited"; fi
-    if [ "$sub" = "failed" ]; then sub_cap="Failed"; fi
+    done <<< "$show_output"
 
-    services_json=$(echo "$services_json" | jq \
-      --arg name "$clean_name" \
-      --arg desc "$desc" \
-      --arg state "$state_cap" \
-      --arg subState "$sub_cap" \
-      --argjson mem "$mem" \
-      '. += [{name:$name, description:$desc, state:$state, subState:$subState, memory:$mem}]')
-  done < <(systemctl list-units --type=service --no-legend --all | awk '{print $1}' | head -n 40)
+    if [ -n "$name" ]; then
+      local clean_name="${name%.service}"
+      local state_cap="Inactive"
+      if [ "$active" = "active" ]; then state_cap="Active"; fi
+      if [ "$active" = "failed" ] || [ "$sub" = "failed" ]; then state_cap="Failed"; fi
+      
+      local sub_cap="Dead"
+      if [ "$sub" = "running" ]; then sub_cap="Running"; fi
+      if [ "$sub" = "exited" ]; then sub_cap="Exited"; fi
+      if [ "$sub" = "failed" ]; then sub_cap="Failed"; fi
+
+      echo "$clean_name|$desc|$state_cap|$sub_cap|$mem"
+    fi
+  )
+
+  local services_json
+  services_json=$(jq -R -s '
+    split("\n") | 
+    map(select(length > 0) | split("|")) | 
+    map({name: .[0], description: .[1], state: .[2], subState: .[3], memory: (.[4] | tonumber)})
+  ' <<< "$raw_data" 2>/dev/null || echo "[]")
 
   echo "$services_json"
 }
@@ -370,7 +481,6 @@ trap 'send_status shutdown; exit 0' TERM INT
 read PREV_CPU_TOTAL PREV_CPU_IDLE <<<"$(read_cpu)"
 read PREV_RX PREV_TX <<<"$(read_net)"
 read PREV_DISK_READ PREV_DISK_WRITE <<<"$(read_disk_io)"
-read _ _ PREV_DOCKER_RX PREV_DOCKER_TX _ <<<"$(read_docker)"
 PREV_TS=$(date +%s)
 sleep 1
 
@@ -428,14 +538,19 @@ while true; do
   PREV_RX=$RX; PREV_TX=$TX; PREV_TS=$NOW
 
   # Docker (optional)
-  read DOCKER_CPU DOCKER_MEM DOCKER_RX DOCKER_TX DOCKER_COUNT <<<"$(read_docker)"
-  DOCKER_RX_DELTA=$(( DOCKER_RX - PREV_DOCKER_RX ))
-  DOCKER_TX_DELTA=$(( DOCKER_TX - PREV_DOCKER_TX ))
-  [ "$DOCKER_RX_DELTA" -lt 0 ] && DOCKER_RX_DELTA=0
-  [ "$DOCKER_TX_DELTA" -lt 0 ] && DOCKER_TX_DELTA=0
-  DOCKER_RX_BPS=$(( DOCKER_RX_DELTA / ELAPSED ))
-  DOCKER_TX_BPS=$(( DOCKER_TX_DELTA / ELAPSED ))
-  PREV_DOCKER_RX=$DOCKER_RX; PREV_DOCKER_TX=$DOCKER_TX
+  CONTAINERS_DATA="$(read_docker_containers)"
+  DOCKER_COUNT=$(jq 'length' <<< "$CONTAINERS_DATA")
+  if [ "$DOCKER_COUNT" -gt 0 ]; then
+    DOCKER_CPU=$(jq '[.[].cpuPercent] | add // 0' <<< "$CONTAINERS_DATA")
+    DOCKER_MEM=$(jq '[.[].memUsedBytes] | add // 0' <<< "$CONTAINERS_DATA")
+    DOCKER_RX_BPS=$(jq '[.[].netRxBps] | add // 0' <<< "$CONTAINERS_DATA")
+    DOCKER_TX_BPS=$(jq '[.[].netTxBps] | add // 0' <<< "$CONTAINERS_DATA")
+  else
+    DOCKER_CPU="0"
+    DOCKER_MEM=0
+    DOCKER_RX_BPS=0
+    DOCKER_TX_BPS=0
+  fi
 
   # Uptime
   UPTIME=$(awk '{print int($1)}' /proc/uptime)
@@ -481,7 +596,8 @@ while true; do
     --argjson uptimeSeconds "$UPTIME" \
     --argjson processCount  "$PROC_COUNT" \
     --argjson services      "$SERVICES_DATA" \
-    '{agentId:$agentId, token:$token, cpuPercent:$cpuPercent, loadAvg1:$loadAvg1, loadAvg5:$loadAvg5, loadAvg15:$loadAvg15, memUsedBytes:$memUsedBytes, memTotalBytes:$memTotalBytes, swapUsedBytes:$swapUsedBytes, swapTotalBytes:$swapTotalBytes, diskUsedBytes:$diskUsedBytes, diskTotalBytes:$diskTotalBytes, diskReadBps:$diskReadBps, diskWriteBps:$diskWriteBps, netRxBytes:$netRxBytes, netTxBytes:$netTxBytes, netRxBps:$netRxBps, netTxBps:$netTxBps, dockerCpuPercent:$dockerCpuPercent, dockerMemUsedBytes:$dockerMemUsedBytes, dockerNetRxBps:$dockerNetRxBps, dockerNetTxBps:$dockerNetTxBps, dockerContainerCount:$dockerContainerCount, temperatureC:$temperatureC, gpuUtilPercent:$gpuUtilPercent, gpuMemUsedBytes:$gpuMemUsedBytes, gpuMemTotalBytes:$gpuMemTotalBytes, gpuPowerWatts:$gpuPowerWatts, uptimeSeconds:$uptimeSeconds, processCount:$processCount, services:$services}')
+    --argjson containers    "$CONTAINERS_DATA" \
+    '{agentId:$agentId, token:$token, cpuPercent:$cpuPercent, loadAvg1:$loadAvg1, loadAvg5:$loadAvg5, loadAvg15:$loadAvg15, memUsedBytes:$memUsedBytes, memTotalBytes:$memTotalBytes, swapUsedBytes:$swapUsedBytes, swapTotalBytes:$swapTotalBytes, diskUsedBytes:$diskUsedBytes, diskTotalBytes:$diskTotalBytes, diskReadBps:$diskReadBps, diskWriteBps:$diskWriteBps, netRxBytes:$netRxBytes, netTxBytes:$netTxBytes, netRxBps:$netRxBps, netTxBps:$netTxBps, dockerCpuPercent:$dockerCpuPercent, dockerMemUsedBytes:$dockerMemUsedBytes, dockerNetRxBps:$dockerNetRxBps, dockerNetTxBps:$dockerNetTxBps, dockerContainerCount:$dockerContainerCount, temperatureC:$temperatureC, gpuUtilPercent:$gpuUtilPercent, gpuMemUsedBytes:$gpuMemUsedBytes, gpuMemTotalBytes:$gpuMemTotalBytes, gpuPowerWatts:$gpuPowerWatts, uptimeSeconds:$uptimeSeconds, processCount:$processCount, services:$services, containers:$containers}')
 
   RESP=$(curl -fsS --max-time 10 -X POST "$SERVER_URL/api/agents/heartbeat" \
     -H 'Content-Type: application/json' \
