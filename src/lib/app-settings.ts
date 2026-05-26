@@ -10,6 +10,7 @@ import {
 export type ResolvedAppSettings = {
   telegramBotToken: string | undefined;
   telegramChatId: string | undefined;
+  telegramTopicId: string | undefined;
   alertCpuPercent: number;
   alertRamPercent: number;
   alertDiskPercent: number;
@@ -27,6 +28,7 @@ function toResolved(doc: IAppSettings): ResolvedAppSettings {
   return {
     telegramBotToken: token || undefined,
     telegramChatId: chat || undefined,
+    telegramTopicId: doc.telegramTopicId || undefined,
     alertCpuPercent: doc.alertCpuPercent,
     alertRamPercent: doc.alertRamPercent,
     alertDiskPercent: doc.alertDiskPercent,
@@ -69,6 +71,7 @@ export async function getAppSettings(): Promise<ResolvedAppSettings> {
 export type PublicAlertSettings = {
   botTokenConfigured: boolean;
   telegramChatId: string;
+  telegramTopicId: string;
   alertCpuPercent: number;
   alertRamPercent: number;
   alertDiskPercent: number;
@@ -81,6 +84,7 @@ export async function getPublicAlertSettings(): Promise<PublicAlertSettings> {
   return {
     botTokenConfigured: Boolean(r.telegramBotToken),
     telegramChatId: r.telegramChatId ?? '',
+    telegramTopicId: r.telegramTopicId ?? '',
     alertCpuPercent: r.alertCpuPercent,
     alertRamPercent: r.alertRamPercent,
     alertDiskPercent: r.alertDiskPercent,
@@ -93,6 +97,7 @@ export type UpdateAppSettingsInput = {
   /** When true, clears stored bot token (ignored if a new non-empty token is sent). */
   clearTelegramBotToken?: boolean;
   telegramChatId?: string;
+  telegramTopicId?: string;
   alertCpuPercent?: number;
   alertRamPercent?: number;
   alertDiskPercent?: number;
@@ -121,6 +126,9 @@ export async function updateAppSettings(input: UpdateAppSettingsInput): Promise<
 
   if (input.telegramChatId !== undefined) {
     doc.telegramChatId = sanitizeTelegramChatId(input.telegramChatId);
+  }
+  if (input.telegramTopicId !== undefined) {
+    doc.telegramTopicId = input.telegramTopicId.trim();
   }
   if (input.alertCpuPercent !== undefined) {
     doc.alertCpuPercent = Math.max(1, Math.min(100, Math.round(input.alertCpuPercent)));

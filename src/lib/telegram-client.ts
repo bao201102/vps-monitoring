@@ -58,7 +58,8 @@ export async function telegramGetMe(token: string): Promise<TelegramCallOk | Tel
 export async function telegramSendMessageHtml(
   token: string,
   chatId: string,
-  html: string
+  html: string,
+  messageThreadId?: string
 ): Promise<TelegramCallOk | TelegramCallError> {
   const t = sanitizeTelegramBotToken(token);
   const c = sanitizeTelegramChatId(chatId);
@@ -78,6 +79,7 @@ export async function telegramSendMessageHtml(
         text: html,
         parse_mode: 'HTML',
         disable_web_page_preview: true,
+        message_thread_id: messageThreadId ? Number(messageThreadId) || undefined : undefined,
       }),
       signal: AbortSignal.timeout(15_000),
     });

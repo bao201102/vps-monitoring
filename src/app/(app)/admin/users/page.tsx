@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 export default async function AdminUsersPage() {
   const session = await getSessionFromCookies();
   if (!session || session.role !== 'admin') {
-    redirect('/dashboard');
+    redirect('/');
   }
 
   return <UsersAdminClient currentUserId={session.sub} />;

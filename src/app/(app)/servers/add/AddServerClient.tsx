@@ -22,11 +22,11 @@ export function AddServerClient({ appUrl, userId }: { appUrl: string; userId: st
     <div className="space-y-6">
       <div>
         <Link
-          href="/dashboard"
+          href="/"
           className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to dashboard
+          Back to servers
         </Link>
         <h1 className="mt-3 text-2xl font-semibold tracking-tight text-ink sm:text-3xl">
           Add a new server

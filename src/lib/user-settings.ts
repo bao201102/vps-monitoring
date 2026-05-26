@@ -10,6 +10,7 @@ import {
 export type PublicUserAlertSettings = {
   botTokenConfigured: boolean;
   telegramChatId: string;
+  telegramTopicId: string;
   alertCpuPercent: number;
   alertRamPercent: number;
   alertDiskPercent: number;
@@ -25,6 +26,7 @@ export async function getUserAlertSettings(userId: string): Promise<PublicUserAl
   return {
     botTokenConfigured: Boolean(user.telegramBotToken),
     telegramChatId: user.telegramChatId ?? '',
+    telegramTopicId: user.telegramTopicId ?? '',
     alertCpuPercent: user.alertCpuPercent ?? 85,
     alertRamPercent: user.alertRamPercent ?? 85,
     alertDiskPercent: user.alertDiskPercent ?? 90,
@@ -36,6 +38,7 @@ export type UpdateUserAppSettingsInput = {
   telegramBotToken?: string;
   clearTelegramBotToken?: boolean;
   telegramChatId?: string;
+  telegramTopicId?: string;
   alertCpuPercent?: number;
   alertRamPercent?: number;
   alertDiskPercent?: number;
@@ -72,6 +75,9 @@ export async function updateUserAlertSettings(
   if (input.telegramChatId !== undefined) {
     user.telegramChatId = sanitizeTelegramChatId(input.telegramChatId);
   }
+  if (input.telegramTopicId !== undefined) {
+    user.telegramTopicId = input.telegramTopicId.trim();
+  }
   if (input.alertCpuPercent !== undefined) {
     user.alertCpuPercent = Math.max(1, Math.min(100, Math.round(input.alertCpuPercent)));
   }
@@ -90,6 +96,7 @@ export async function updateUserAlertSettings(
   return {
     botTokenConfigured: Boolean(user.telegramBotToken),
     telegramChatId: user.telegramChatId ?? '',
+    telegramTopicId: user.telegramTopicId ?? '',
     alertCpuPercent: user.alertCpuPercent,
     alertRamPercent: user.alertRamPercent,
     alertDiskPercent: user.alertDiskPercent,
@@ -108,6 +115,7 @@ export async function getUserResolvedAlertSettings(userId: string) {
   return {
     telegramBotToken: token || undefined,
     telegramChatId: chat || undefined,
+    telegramTopicId: user.telegramTopicId?.trim() || undefined,
     alertCpuPercent: user.alertCpuPercent ?? 85,
     alertRamPercent: user.alertRamPercent ?? 85,
     alertDiskPercent: user.alertDiskPercent ?? 90,

@@ -6,6 +6,7 @@ export interface IUser {
   role: 'admin' | 'user';
   telegramBotToken?: string;
   telegramChatId?: string;
+  telegramTopicId?: string;
   alertCpuPercent: number;
   alertRamPercent: number;
   alertDiskPercent: number;
@@ -21,6 +22,7 @@ const UserSchema = new Schema<IUser>(
     role: { type: String, enum: ['admin', 'user'], default: 'user' },
     telegramBotToken: { type: String, default: '' },
     telegramChatId: { type: String, default: '' },
+    telegramTopicId: { type: String, default: '' },
     alertCpuPercent: { type: Number, default: 85 },
     alertRamPercent: { type: Number, default: 85 },
     alertDiskPercent: { type: Number, default: 90 },

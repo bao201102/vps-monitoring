@@ -115,7 +115,8 @@ export async function sendTelegramOverloadIfNeeded(
   const result = await telegramSendMessageHtml(
     settings.telegramBotToken!,
     settings.telegramChatId!,
-    lines.join('\n')
+    lines.join('\n'),
+    settings.telegramTopicId
   );
   if (!result.ok) {
     console.error('[telegram] sendMessage failed:', result.httpStatus, result.description);
@@ -176,7 +177,8 @@ export async function sendTelegramDisconnectIfNeeded(
   const result = await telegramSendMessageHtml(
     settings.telegramBotToken!,
     settings.telegramChatId!,
-    lines.join('\n')
+    lines.join('\n'),
+    settings.telegramTopicId
   );
   if (!result.ok) {
     console.error('[telegram] sendMessage failed:', result.httpStatus, result.description);
@@ -202,6 +204,7 @@ export async function sendTelegramSettingsTestResult(
     settings.telegramChatId!,
     `<b>VPS Monitor</b>\n${escapeHtml(
       'Thử nghiệm — nếu bạn thấy tin này, bot và chat id đã đúng.'
-    )}`
+    )}`,
+    settings.telegramTopicId
   );
 }

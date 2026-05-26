@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { connectDB } from '@/lib/db';
 import { Metric } from '@/lib/models/Metric';
+import { Agent } from '@/lib/models/Agent';
 import { getSessionFromCookies } from '@/lib/auth';
 
 export const runtime = 'nodejs';

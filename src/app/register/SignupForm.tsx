@@ -29,7 +29,7 @@ export function SignupForm() {
       return;
     }
     toast.success('Registration successful!');
-    router.push('/dashboard');
+    router.push('/');
     router.refresh();
   };
 

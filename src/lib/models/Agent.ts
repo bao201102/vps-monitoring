@@ -29,7 +29,7 @@ export interface IAgent {
 
 const AgentSchema = new Schema<IAgent>(
   {
-    userId: { type: Schema.Types.ObjectId, ref: 'User', required: true, index: true },
+    userId: { type: Schema.Types.ObjectId as any, ref: 'User', required: true, index: true },
     agentId: { type: String, required: true, unique: true, index: true },
     token: { type: String, required: true, unique: true, index: true },
     hostname: { type: String, default: 'unknown' },

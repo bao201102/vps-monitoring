@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Server, Settings, Users } from 'lucide-react';
+import { Server, Settings, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -10,8 +10,7 @@ export function MobileNav({ role }: { role: string }) {
   const pathname = usePathname();
 
   const navItems = [
-    { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
-    { href: '/servers', label: 'Servers', icon: Server },
+    { href: '/', label: 'Servers', icon: Server },
     role === 'admin' && { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/settings', label: 'Settings', icon: Settings },
   ].filter(Boolean) as { href: string; label: string; icon: any }[];

@@ -1,7 +1,8 @@
-import { ServersClient } from './ServersClient';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
 export default function ServersPage() {
-  return <ServersClient />;
+  redirect('/');
 }
+

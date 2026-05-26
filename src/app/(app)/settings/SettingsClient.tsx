@@ -19,6 +19,7 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 type AlertSettingsResponse = {
   botTokenConfigured: boolean;
   telegramChatId: string;
+  telegramTopicId: string;
   alertCpuPercent: number;
   alertRamPercent: number;
   alertDiskPercent: number;
@@ -32,7 +33,7 @@ export function SettingsClient({
   appUrl: string;
   offlineAfterSeconds: number;
 }) {
-  const { data } = useSWR<{ user: { username: string } | null }>('/api/auth/me', fetcher);
+  const { data } = useSWR<{ user: { username: string; role?: string } | null }>('/api/auth/me', fetcher);
   const {
     data: alertData,
     error: alertError,
@@ -47,6 +48,7 @@ export function SettingsClient({
   const [copied, setCopied] = useState(false);
 
   const [chatId, setChatId] = useState('');
+  const [topicId, setTopicId] = useState('');
   const [botToken, setBotToken] = useState('');
   const [clearBotToken, setClearBotToken] = useState(false);
   const [cpu, setCpu] = useState('85');
@@ -60,6 +62,7 @@ export function SettingsClient({
   useEffect(() => {
     if (!alertData || alertsHydrated) return;
     setChatId(alertData.telegramChatId);
+    setTopicId(alertData.telegramTopicId || '');
     setCpu(String(alertData.alertCpuPercent));
     setRam(String(alertData.alertRamPercent));
     setDisk(String(alertData.alertDiskPercent));
@@ -100,20 +103,21 @@ export function SettingsClient({
     const nDisk = Math.round(Number(disk));
     const nCd = Math.round(Number(cooldown));
     if (!Number.isFinite(nCpu) || nCpu < 1 || nCpu > 100) {
-      return toast.error('CPU: nhập số từ 1 đến 100.');
+      return toast.error('CPU: enter a value between 1 and 100.');
     }
     if (!Number.isFinite(nRam) || nRam < 1 || nRam > 100) {
-      return toast.error('RAM: nhập số từ 1 đến 100.');
+      return toast.error('RAM: enter a value between 1 and 100.');
     }
     if (!Number.isFinite(nDisk) || nDisk < 1 || nDisk > 100) {
-      return toast.error('Disk: nhập số từ 1 đến 100.');
+      return toast.error('Disk: enter a value between 1 and 100.');
     }
     if (!Number.isFinite(nCd) || nCd < 60 || nCd > 86_400) {
-      return toast.error('Cooldown: từ 60 đến 86400 giây.');
+      return toast.error('Cooldown: must be between 60 and 86400 seconds.');
     }
 
     const body: Record<string, unknown> = {
       telegramChatId: chatId,
+      telegramTopicId: topicId,
       alertCpuPercent: nCpu,
       alertRamPercent: nRam,
       alertDiskPercent: nDisk,
@@ -132,17 +136,18 @@ export function SettingsClient({
     const out = await res.json().catch(() => ({}));
     setSavingAlerts(false);
     if (!res.ok) {
-      return toast.error(out.error ?? 'Không lưu được');
+      return toast.error(out.error ?? 'Failed to save settings');
     }
     mutateAlerts(out, false);
     setChatId(out.telegramChatId);
+    setTopicId(out.telegramTopicId || '');
     setCpu(String(out.alertCpuPercent));
     setRam(String(out.alertRamPercent));
     setDisk(String(out.alertDiskPercent));
     setCooldown(String(out.telegramCooldownSeconds));
     setBotToken('');
     setClearBotToken(false);
-    toast.success('Đã lưu cấu hình Telegram');
+    toast.success('Telegram alert settings saved');
   };
 
   const sendTest = async () => {
@@ -150,8 +155,8 @@ export function SettingsClient({
     const res = await fetch('/api/settings/alerts/test', { method: 'POST' });
     const out = await res.json().catch(() => ({}));
     setTesting(false);
-    if (!res.ok) return toast.error(out.error ?? 'Gửi thử thất bại');
-    toast.success('Đã gửi tin thử — kiểm tra Telegram');
+    if (!res.ok) return toast.error(out.error ?? 'Test message failed');
+    toast.success('Test message sent — check your Telegram');
   };
 
   const configured =
@@ -243,31 +248,32 @@ export function SettingsClient({
       <form onSubmit={saveAlerts} className="card card-pad">
         <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
           <Send className="h-4 w-4 text-ink-muted" />
-          Telegram — cảnh báo quá tải & mất kết nối
+          Telegram Alerts
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
-          Khi CPU, RAM hoặc dung lượng ổ đĩa (/) vượt ngưỡng, VPS quá hạn heartbeat, hoặc agent gửi tín hiệu
-          shutdown/service stop, dashboard gửi một tin qua Telegram. Cấu hình được lưu trong MongoDB.
+          When CPU, RAM, or disk (/) exceeds a threshold, the VPS heartbeat times out, or the agent
+          sends a shutdown/service-stop signal, the dashboard sends a Telegram message. Settings are
+          stored in MongoDB.
         </p>
 
         {alertLoading && (
           <div className="mt-4 flex items-center gap-2 text-sm text-ink-muted">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Đang tải cấu hình…
+            Loading settings…
           </div>
         )}
         {alertError && (
-          <p className="mt-4 text-sm text-danger">Không tải được cấu hình (đăng nhập lại hoặc kiểm tra API).</p>
+          <p className="mt-4 text-sm text-danger">Failed to load settings (try re-logging or check the API).</p>
         )}
 
         {!alertLoading && alertData && (
           <>
             <div className="mt-4 flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-ink-soft">Trạng thái:</span>
+              <span className="text-ink-soft">Status:</span>
               {configured ? (
-                <span className="chip-success">Đã bật (bot + chat id)</span>
+                <span className="chip-success">Enabled (bot + chat id configured)</span>
               ) : (
-                <span className="chip-muted">Chưa đủ bot token + chat id</span>
+                <span className="chip-muted">Bot token or chat ID missing</span>
               )}
             </div>
 
@@ -279,7 +285,7 @@ export function SettingsClient({
                   className="input font-mono text-sm"
                   value={botToken}
                   onChange={(e) => setBotToken(e.target.value)}
-                  placeholder={alertData.botTokenConfigured ? '•••• để giữ token hiện tại — nhập mới để thay' : '123456789:ABC...'}
+                  placeholder={alertData.botTokenConfigured ? '•••• keep current token — enter new to replace' : '123456789:ABC...'}
                   autoComplete="off"
                 />
                 {alertData.botTokenConfigured && (
@@ -289,22 +295,32 @@ export function SettingsClient({
                       checked={clearBotToken}
                       onChange={(e) => setClearBotToken(e.target.checked)}
                     />
-                    Xóa token đã lưu (sau khi bấm Lưu)
+                    Clear saved token (applies after saving)
                   </label>
                 )}
               </div>
-              <div className="md:col-span-2">
-                <label className="label">Chat ID (user hoặc nhóm)</label>
+              <div>
+                <label className="label">Chat ID (user or group)</label>
                 <input
                   className="input font-mono text-sm"
                   value={chatId}
                   onChange={(e) => setChatId(e.target.value)}
-                  placeholder="-100… hoặc số user id"
+                  placeholder="-100… or numeric user id"
                   autoComplete="off"
                 />
               </div>
               <div>
-                <label className="label">Cảnh báo khi CPU ≥ (%)</label>
+                <label className="label">Topic ID (Message Thread ID — optional)</label>
+                <input
+                  className="input font-mono text-sm"
+                  value={topicId}
+                  onChange={(e) => setTopicId(e.target.value)}
+                  placeholder="Enter topic id (e.g. 12)"
+                  autoComplete="off"
+                />
+              </div>
+              <div>
+                <label className="label">Alert when CPU ≥ (%)</label>
                 <input
                   className="input"
                   type="number"
@@ -315,7 +331,7 @@ export function SettingsClient({
                 />
               </div>
               <div>
-                <label className="label">Cảnh báo khi RAM ≥ (%)</label>
+                <label className="label">Alert when RAM ≥ (%)</label>
                 <input
                   className="input"
                   type="number"
@@ -326,7 +342,7 @@ export function SettingsClient({
                 />
               </div>
               <div>
-                <label className="label">Cảnh báo khi disk / ≥ (%)</label>
+                <label className="label">Alert when disk / ≥ (%)</label>
                 <input
                   className="input"
                   type="number"
@@ -337,7 +353,7 @@ export function SettingsClient({
                 />
               </div>
               <div>
-                <label className="label">Cooldown (giây / mỗi máy)</label>
+                <label className="label">Cooldown (seconds / per server)</label>
                 <input
                   className="input"
                   type="number"
@@ -346,29 +362,29 @@ export function SettingsClient({
                   value={cooldown}
                   onChange={(e) => setCooldown(e.target.value)}
                 />
-                <p className="mt-1 text-[11px] text-ink-soft">Tối thiểu 60, tối đa 86400.</p>
+                <p className="mt-1 text-[11px] text-ink-soft">Minimum 60, maximum 86400.</p>
               </div>
             </div>
 
             <p className="mt-4 text-xs text-ink-soft">
-              Bot token được lưu trong cùng database với dashboard — chỉ phù hợp khi bạn kiểm soát được MongoDB
-              và máy chủ ứng dụng.
+              The bot token is stored in the same database as the dashboard — only suitable when
+              you control both MongoDB and the application server.
             </p>
 
             <div className="mt-4 flex flex-wrap gap-2">
               <button type="submit" className="btn-primary" disabled={savingAlerts}>
                 {savingAlerts && <Loader2 className="h-4 w-4 animate-spin" />}
-                Lưu cấu hình
+                Save settings
               </button>
               <button
                 type="button"
                 className="btn-secondary inline-flex items-center gap-2"
                 disabled={testing || !configured}
                 onClick={sendTest}
-                title={!configured ? 'Cần bot token + chat id đã lưu' : undefined}
+                title={!configured ? 'Bot token + chat ID required' : undefined}
               >
                 {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Gửi tin thử
+                Send test
               </button>
             </div>
           </>

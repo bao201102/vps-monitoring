@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getSessionFromCookies } from '@/lib/auth';
 import { isSetupComplete } from '@/lib/setup';
-import { Sidebar } from '@/components/Sidebar';
 import { MobileNav } from '@/components/MobileNav';
+import { AppLayoutClient } from '@/components/AppLayoutClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,13 +12,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!session) redirect('/login');
 
   return (
-    <div className="min-h-screen">
-      <Sidebar username={session.username} role={session.role} />
+    <div className="min-h-screen flex flex-col">
       <MobileNav role={session.role} />
-      <div className="lg:pl-64">
-        <main className="mx-auto w-full max-w-7xl px-4 pb-24 pt-6 sm:px-6 lg:pb-10 lg:pt-8">
+      <div className="flex flex-col flex-grow min-h-screen">
+        <AppLayoutClient username={session.username} role={session.role}>
           {children}
-        </main>
+        </AppLayoutClient>
       </div>
     </div>
   );

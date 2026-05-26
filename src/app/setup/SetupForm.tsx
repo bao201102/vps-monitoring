@@ -40,7 +40,7 @@ export function SetupForm() {
       return;
     }
     toast.success(`Welcome, ${data.username}!`);
-    router.push('/dashboard');
+    router.push('/');
     router.refresh();
   };
 

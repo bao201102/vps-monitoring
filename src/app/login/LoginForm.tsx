@@ -8,7 +8,7 @@ import { toast } from 'sonner';
 export function LoginForm() {
   const router = useRouter();
   const params = useSearchParams();
-  const redirectTo = params.get('redirect') ?? '/dashboard';
+  const redirectTo = params.get('redirect') ?? '/';
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');

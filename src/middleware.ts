@@ -4,7 +4,7 @@ import { env } from '@/lib/env';
 
 const COOKIE_NAME = 'vpsmon_session';
 
-const PROTECTED_ROUTES = ['/dashboard', '/servers', '/settings'];
+const PROTECTED_ROUTES = ['/', '/servers', '/settings'];
 const AUTH_ROUTES = ['/login', '/register'];
 
 async function isAuthed(req: NextRequest): Promise<boolean> {
@@ -35,7 +35,7 @@ export async function middleware(req: NextRequest) {
 
   if (isAuthPage && authed) {
     const url = req.nextUrl.clone();
-    url.pathname = '/dashboard';
+    url.pathname = '/';
     url.search = '';
     return NextResponse.redirect(url);
   }

@@ -84,6 +84,8 @@ export async function GET() {
             gpuPowerWatts: m.gpuPowerWatts,
             uptimeSeconds: m.uptimeSeconds,
             loadAvg1: m.loadAvg1,
+            loadAvg5: m.loadAvg5,
+            loadAvg15: m.loadAvg15,
           }
         : null,
     };

@@ -1,16 +1,20 @@
 import Link from 'next/link';
 import { ArrowLeft, Boxes, Code2, ShieldCheck, Terminal } from 'lucide-react';
 import { env } from '@/lib/env';
+import { getSessionFromCookies } from '@/lib/auth';
+import { InstallCommand } from './InstallCommand';
 
 export const dynamic = 'force-dynamic';
 
-export default function DocsPage() {
-  const cmd = `curl -fsSL ${env.APP_URL.replace(/\/$/, '')}/api/install | sudo bash`;
+export default async function DocsPage() {
+  const session = await getSessionFromCookies();
+  const userId = session?.sub ?? '';
+  const cmd = `curl -fsSL ${env.APP_URL.replace(/\/$/, '')}/api/install?interval=15&userId=${userId} | sudo bash`;
   return (
     <div className="space-y-6">
       <div>
         <Link
-          href="/dashboard"
+          href="/"
           className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -28,9 +32,7 @@ export default function DocsPage() {
         <p className="text-sm text-ink-muted">
           SSH into the VPS as root (or with sudo) and run:
         </p>
-        <pre className="terminal-block mt-3 overflow-x-auto rounded-xl border border-border p-4 text-sm font-mono text-ink-muted">
-          {cmd}
-        </pre>
+        <InstallCommand command={cmd} />
         <p className="mt-3 text-sm text-ink-muted">
           The script:
         </p>

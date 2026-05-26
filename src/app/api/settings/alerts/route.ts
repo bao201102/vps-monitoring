@@ -14,6 +14,7 @@ const putSchema = z.object({
   telegramBotToken: z.string().max(512).optional(),
   clearTelegramBotToken: z.boolean().optional(),
   telegramChatId: z.string().max(64).optional(),
+  telegramTopicId: z.string().max(64).optional(),
   alertCpuPercent: z.number().int().min(1).max(100).optional(),
   alertRamPercent: z.number().int().min(1).max(100).optional(),
   alertDiskPercent: z.number().int().min(1).max(100).optional(),

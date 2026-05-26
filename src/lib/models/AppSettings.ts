@@ -5,6 +5,7 @@ export interface IAppSettings {
   __singleton: number;
   telegramBotToken: string;
   telegramChatId: string;
+  telegramTopicId?: string;
   alertCpuPercent: number;
   alertRamPercent: number;
   alertDiskPercent: number;
@@ -18,6 +19,7 @@ const AppSettingsSchema = new Schema<IAppSettings>(
     __singleton: { type: Number, default: 1, unique: true },
     telegramBotToken: { type: String, default: '' },
     telegramChatId: { type: String, default: '' },
+    telegramTopicId: { type: String, default: '' },
     alertCpuPercent: { type: Number, default: 85, min: 1, max: 100 },
     alertRamPercent: { type: Number, default: 85, min: 1, max: 100 },
     alertDiskPercent: { type: Number, default: 90, min: 1, max: 100 },
