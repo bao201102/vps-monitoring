@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   description:
     'Open-source, self-hosted monitoring & management for your VPS fleet. Install with one command.',
   icons: {
-    icon: '/favicon.svg',
+    icon: '/favicon.svg?v=2',
   },
 };
 

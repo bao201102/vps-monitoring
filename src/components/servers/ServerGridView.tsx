@@ -112,7 +112,7 @@ export function ServerGridView({ servers, visibleFields, onRefresh }: ServerGrid
           <Link
             key={s.agentId}
             href={`/servers/${s.agentId}`}
-            className="card p-5 flex flex-col justify-between hover:border-border-soft hover:bg-bg-soft/50 transition-all group cursor-pointer"
+            className="card-interactive p-5 flex flex-col justify-between group cursor-pointer"
           >
             {/* Header section of Card */}
             <div>
@@ -175,7 +175,7 @@ export function ServerGridView({ servers, visibleFields, onRefresh }: ServerGrid
             {/* Bottom details card button link */}
             <div className="pt-2 border-t border-border/40 flex items-center justify-end">
               <span
-                className="text-[11px] font-semibold text-ink-soft group-hover:text-[#3b82f6] flex items-center gap-1 transition-colors"
+                className="text-[11px] font-semibold text-ink-soft group-hover:text-accent flex items-center gap-1 transition-colors"
               >
                 View details
                 <ChevronRight className="h-3.5 w-3.5" />

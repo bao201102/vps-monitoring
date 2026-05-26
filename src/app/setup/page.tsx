@@ -17,6 +17,13 @@ export default async function SetupPage() {
       <div className="fixed right-4 top-4 z-50">
         <ThemeToggle className="bg-bg-card/90 border border-border shadow-card" />
       </div>
+
+      {/* Ambient background glows */}
+      <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -left-40 h-[700px] w-[700px] rounded-full bg-accent/5 blur-[128px]" />
+        <div className="absolute -bottom-40 -right-40 h-[700px] w-[700px] rounded-full bg-brand-500/5 blur-[128px]" />
+      </div>
+
       <div className="relative mx-auto grid min-h-screen w-full max-w-6xl items-center gap-10 px-6 py-12 lg:grid-cols-2">
         <div className="space-y-8">
           <Logo />

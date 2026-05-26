@@ -332,7 +332,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
           <select
             value={range}
             onChange={(e) => setRange(e.target.value)}
-            className="bg-bg-card border border-border text-xs text-ink font-semibold py-1.5 pl-3 pr-8 rounded-lg outline-none focus:border-[#3b82f6] focus:ring-1 focus:ring-[#3b82f6]/30 cursor-pointer appearance-none"
+            className="bg-bg-card border border-border text-xs text-ink font-semibold py-1.5 pl-3 pr-8 rounded-lg outline-none focus:border-accent focus:ring-1 focus:ring-accent/30 cursor-pointer appearance-none"
             style={{
               backgroundImage: `url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`,
               backgroundRepeat: 'no-repeat',
@@ -377,7 +377,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
                       <LayoutGrid className="h-3.5 w-3.5" />
                       Grid
                     </span>
-                    {isGridLayout && <Check className="h-3.5 w-3.5 text-[#3b82f6]" />}
+                    {isGridLayout && <Check className="h-3.5 w-3.5 text-accent" />}
                   </button>
                   <button
                     onClick={() => {
@@ -390,7 +390,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
                       <Maximize2 className="h-3.5 w-3.5" />
                       Full
                     </span>
-                    {!isGridLayout && <Check className="h-3.5 w-3.5 text-[#3b82f6]" />}
+                    {!isGridLayout && <Check className="h-3.5 w-3.5 text-accent" />}
                   </button>
 
                   <div className="border-t border-border my-1" />
@@ -408,7 +408,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
                       <Layers className="h-3.5 w-3.5" />
                       Default (All)
                     </span>
-                    {detailLayout === 'default' && <Check className="h-3.5 w-3.5 text-[#3b82f6]" />}
+                    {detailLayout === 'default' && <Check className="h-3.5 w-3.5 text-accent" />}
                   </button>
                   <button
                     onClick={() => {
@@ -421,7 +421,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
                       <Cpu className="h-3.5 w-3.5" />
                       Tabs
                     </span>
-                    {detailLayout === 'tabs' && <Check className="h-3.5 w-3.5 text-[#3b82f6]" />}
+                    {detailLayout === 'tabs' && <Check className="h-3.5 w-3.5 text-accent" />}
                   </button>
                 </div>
               </>
@@ -470,7 +470,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
             {/* Core Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1 text-sm font-bold text-ink tracking-tight">
-                <Cpu className="h-4 w-4 text-[#3b82f6]" />
+                <Cpu className="h-4 w-4 text-accent" />
                 <span>Core Metrics</span>
               </div>
               <CoreTab
@@ -485,7 +485,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
             {/* Disk Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1 text-sm font-bold text-ink tracking-tight">
-                <HardDrive className="h-4 w-4 text-brand" />
+                <HardDrive className="h-4 w-4 text-accent" />
                 <span>Disk & Storage</span>
               </div>
               <DiskTab
@@ -500,7 +500,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
             {/* Containers Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1 text-sm font-bold text-ink tracking-tight">
-                <Container className="h-4 w-4 text-[#3b82f6]" />
+                <Container className="h-4 w-4 text-accent" />
                 <span>Docker Containers</span>
               </div>
               <ContainersTab
@@ -517,7 +517,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
             {/* Services Section */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 px-1 text-sm font-bold text-ink tracking-tight">
-                <Layers className="h-4 w-4 text-[#3b82f6]" />
+                <Layers className="h-4 w-4 text-accent" />
                 <span>System Services</span>
               </div>
               <ServicesTab

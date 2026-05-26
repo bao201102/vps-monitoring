@@ -84,13 +84,13 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
     if (sortField !== field) {
       return <span className="ml-1 text-ink-soft opacity-40 select-none">↑↓</span>;
     }
-    return <span className="ml-1 font-bold text-[#3b82f6] select-none">{sortAsc ? '↑' : '↓'}</span>;
+    return <span className="ml-1 font-bold text-accent select-none">{sortAsc ? '↑' : '↓'}</span>;
   };
 
   if (isLoading || !data) {
     return (
       <div className="flex items-center justify-center py-24 text-ink-muted card">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin text-brand" />
+        <Loader2 className="mr-2 h-4 w-4 animate-spin text-accent" />
         Loading services…
       </div>
     );

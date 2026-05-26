@@ -121,7 +121,7 @@ export function ViewConfigPopover({
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex-1 flex flex-col items-center justify-center gap-1.5 py-2.5 px-1 border-b-2 transition-all ${
                   isActive
-                    ? 'border-[#3b82f6] text-ink bg-bg-muted/50'
+                    ? 'border-accent text-ink bg-bg-muted/50'
                     : 'border-transparent text-ink-soft hover:text-ink hover:bg-bg-soft'
                 }`}
               >
@@ -143,7 +143,7 @@ export function ViewConfigPopover({
               >
                 <span className="font-medium text-ink">Table</span>
                 {layout === 'table' ? (
-                  <span className="h-4 w-4 rounded-full border-4 border-[#3b82f6] bg-transparent" />
+                  <span className="h-4 w-4 rounded-full border-4 border-accent bg-transparent" />
                 ) : (
                   <span className="h-4 w-4 rounded-full border-2 border-border bg-transparent" />
                 )}
@@ -154,7 +154,7 @@ export function ViewConfigPopover({
               >
                 <span className="font-medium text-ink">Grid</span>
                 {layout === 'grid' ? (
-                  <span className="h-4 w-4 rounded-full border-4 border-[#3b82f6] bg-transparent" />
+                  <span className="h-4 w-4 rounded-full border-4 border-accent bg-transparent" />
                 ) : (
                   <span className="h-4 w-4 rounded-full border-2 border-border bg-transparent" />
                 )}
@@ -182,7 +182,7 @@ export function ViewConfigPopover({
                   >
                     <span className="font-medium text-ink capitalize">{label}</span>
                     {statusFilter === s ? (
-                      <span className="h-4 w-4 rounded-full border-4 border-[#3b82f6] bg-transparent" />
+                      <span className="h-4 w-4 rounded-full border-4 border-accent bg-transparent" />
                     ) : (
                       <span className="h-4 w-4 rounded-full border-2 border-border bg-transparent" />
                     )}
@@ -207,7 +207,7 @@ export function ViewConfigPopover({
                   >
                     <span>{opt.label}</span>
                     {isCurrent && (
-                      <span className="text-[10px] text-[#3b82f6] font-bold">
+                      <span className="text-[10px] text-accent font-bold">
                         {sortOrder === 'asc' ? '↑' : '↓'}
                       </span>
                     )}
@@ -230,7 +230,7 @@ export function ViewConfigPopover({
                   >
                     <span className={`flex items-center justify-center h-4 w-4 rounded border transition-all ${
                       checked
-                        ? 'border-[#3b82f6] bg-[#3b82f6]/10 text-[#3b82f6]'
+                        ? 'border-accent bg-accent/10 text-accent'
                         : 'border-border bg-transparent text-transparent hover:border-ink-soft'
                     }`}>
                       <Check className="h-3 w-3 stroke-[3]" />

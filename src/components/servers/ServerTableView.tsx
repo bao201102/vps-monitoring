@@ -89,7 +89,7 @@ export function ServerTableView({
   const renderSortArrow = (field: string) => {
     if (sortBy !== field) return <ArrowUpDown className="ml-1 h-3 w-3 text-ink-soft opacity-40 group-hover:opacity-100" />;
     return (
-      <span className="ml-1 font-bold text-[#3b82f6]">
+      <span className="ml-1 font-bold text-accent">
         {sortOrder === 'asc' ? '↑' : '↓'}
       </span>
     );

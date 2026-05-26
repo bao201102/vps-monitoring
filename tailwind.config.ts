@@ -16,8 +16,13 @@ const config: Config = {
           muted: 'rgb(var(--color-bg-muted) / <alpha-value>)',
         },
         brand: {
+          DEFAULT: 'rgb(var(--color-brand-500) / <alpha-value>)',
           400: 'rgb(var(--color-brand-400) / <alpha-value>)',
           500: 'rgb(var(--color-brand-500) / <alpha-value>)',
+        },
+        accent: {
+          DEFAULT: 'rgb(var(--color-accent) / <alpha-value>)',
+          hover: 'rgb(var(--color-accent-hover) / <alpha-value>)',
         },
         success: 'rgb(var(--color-success) / <alpha-value>)',
         warning: 'rgb(var(--color-warning) / <alpha-value>)',

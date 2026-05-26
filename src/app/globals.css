@@ -20,7 +20,9 @@
     --color-success: 34 197 94;
     --color-warning: 234 179 8;
     --color-danger: 239 68 68;
-    --shadow-glow: 0 1px 2px rgba(0, 0, 0, 0.45);
+    --color-accent: 99 102 241;
+    --color-accent-hover: 129 140 248;
+    --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.15), 0 1px 2px rgba(0, 0, 0, 0.45);
     --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.05) inset;
     --selection-bg: 250 250 250;
     --selection-fg: 9 9 11;
@@ -50,7 +52,9 @@
     --color-success: 22 163 74;
     --color-warning: 202 138 4;
     --color-danger: 220 38 38;
-    --shadow-glow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    --color-accent: 79 70 229;
+    --color-accent-hover: 67 56 202;
+    --shadow-glow: 0 4px 20px rgba(79, 70, 229, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
     --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.05);
     --selection-bg: 24 24 27;
     --selection-fg: 250 250 250;
@@ -85,7 +89,11 @@
 
 @layer components {
   .card {
-    @apply rounded-2xl border border-border bg-bg-card/80 backdrop-blur-sm shadow-card;
+    @apply rounded-2xl border border-border bg-bg-card/80 backdrop-blur-sm shadow-card transition-all duration-300;
+  }
+
+  .card-interactive {
+    @apply card hover:border-accent/30 hover:bg-bg-card hover:-translate-y-0.5 hover:shadow-glow;
   }
 
   .card-pad {
@@ -114,7 +122,7 @@
 
   .input {
     @apply w-full rounded-lg bg-bg-soft border border-border px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-soft outline-none transition-all;
-    @apply focus:border-[rgb(var(--color-border)/1)] focus:ring-2 focus:ring-[rgb(var(--focus-ring)/0.25)];
+    @apply focus:border-accent/80 focus:ring-2 focus:ring-accent/20;
   }
 
   .label {

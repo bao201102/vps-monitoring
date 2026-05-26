@@ -136,7 +136,7 @@ export function UsersAdminClient({ currentUserId }: { currentUserId: string }) {
                       </td>
                       <td className="whitespace-nowrap px-5 py-4">
                         <div className="flex items-center gap-1.5 text-xs text-ink font-medium">
-                          <Server className="h-3.5 w-3.5 text-brand" />
+                          <Server className="h-3.5 w-3.5 text-accent" />
                           <span>{user.vpsCount} server{user.vpsCount === 1 ? '' : 's'}</span>
                         </div>
                       </td>

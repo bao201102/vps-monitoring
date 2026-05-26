@@ -8,7 +8,7 @@ export function Logo({ className }: { className?: string }) {
           <svg
             viewBox="0 0 24 24"
             fill="none"
-            className="h-5 w-5 text-white"
+            className="h-5 w-5 text-ink"
             strokeWidth="2.2"
             stroke="currentColor"
             strokeLinecap="round"

@@ -39,7 +39,7 @@ export default function ContainersPage() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-24 text-ink-muted card">
-          <Loader2 className="mr-2 h-4 w-4 animate-spin text-brand" />
+          <Loader2 className="mr-2 h-4 w-4 animate-spin text-accent" />
           Loading containers…
         </div>
       ) : error ? (

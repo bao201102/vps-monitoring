@@ -18,6 +18,13 @@ export default async function RegisterPage() {
       <div className="fixed right-4 top-4 z-50">
         <ThemeToggle className="bg-bg-card/90 border border-border shadow-card" />
       </div>
+
+      {/* Ambient background glows */}
+      <div className="absolute inset-0 -z-10 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -left-40 h-[600px] w-[600px] rounded-full bg-accent/5 blur-[128px]" />
+        <div className="absolute -bottom-40 -right-40 h-[600px] w-[600px] rounded-full bg-brand-500/5 blur-[128px]" />
+      </div>
+
       <div className="relative mx-auto flex min-h-screen w-full max-w-md flex-col items-center justify-center gap-8 px-6 py-12">
         <Logo />
 
@@ -30,7 +37,7 @@ export default async function RegisterPage() {
 
           <p className="mt-6 text-center text-xs text-ink-soft">
             Already have an account?{' '}
-            <Link href="/login" className="text-brand hover:underline font-semibold">
+            <Link href="/login" className="text-accent hover:underline font-semibold">
               Sign in
             </Link>
           </p>
