@@ -52,7 +52,7 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
     { refreshInterval: 5000 }
   );
 
-  const services = data?.services || [];
+  const services = useMemo(() => data?.services || [], [data?.services]);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<keyof ServiceData>('name');
   const [sortAsc, setSortAsc] = useState(true);

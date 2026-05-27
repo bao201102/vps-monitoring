@@ -62,7 +62,7 @@ export function ContainersTab({
     { refreshInterval: 5000 }
   );
 
-  const containersMeta = data?.containers || [];
+  const containersMeta = useMemo(() => data?.containers || [], [data?.containers]);
 
   // Format dates for XAxis
   const formatTime = (ts: string) => {

@@ -55,8 +55,8 @@ export async function GET(req: Request, { params }: RouteContext) {
     dockerNetTxBps: m.dockerNetTxBps,
     dockerContainerCount: m.dockerContainerCount,
     temperatureC: m.temperatureC,
-    // temperatures: Map → plain object for JSON serialization
-    temperatures: m.temperatures ? Object.fromEntries(m.temperatures) : {},
+    // temperatures: plain object from lean query
+    temperatures: m.temperatures || {},
     gpuUtilPercent: m.gpuUtilPercent,
     gpuMemUsedBytes: m.gpuMemUsedBytes,
     gpuMemTotalBytes: m.gpuMemTotalBytes,
