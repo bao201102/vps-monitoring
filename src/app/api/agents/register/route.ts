@@ -41,7 +41,7 @@ export async function POST(req: Request) {
 
   if (agent) {
     // If agent exists, ensure the registering user owns it to prevent hijacking
-    if (agent.userId !== parsed.data.userId) {
+    if (agent.userId.toString() !== parsed.data.userId) {
       return NextResponse.json({ error: 'Unauthorized agent registration override' }, { status: 403 });
     }
     Object.assign(agent, {
