@@ -186,7 +186,7 @@ export async function POST(req: Request) {
         });
       }
 
-      const extendedFields = {
+      const extendedFields: any = {
         fragmentPath: s.fragmentPath,
         mainPid: s.mainPid,
         nRestarts: s.nRestarts,
@@ -204,12 +204,15 @@ export async function POST(req: Request) {
         statusText: s.statusText,
         result: s.result,
         cpuUsageNSec: s.cpuUsageNSec,
-        memoryPeak: s.memoryPeak,
         memoryLimit: s.memoryLimit,
         canStart: s.canStart,
         canStop: s.canStop,
         canReload: s.canReload,
       };
+
+      if (s.memoryPeak !== undefined && s.memoryPeak !== null) {
+        extendedFields.memoryPeak = s.memoryPeak;
+      }
 
       if (existing) {
         existing.state = s.state;
@@ -234,7 +237,7 @@ export async function POST(req: Request) {
           state: s.state,
           subState: s.subState,
           memory: currentMem,
-          memoryPeak: currentMem,
+          memoryPeak: s.memoryPeak ?? currentMem,
           cpu10m: currentCpu,
           cpuPeak: currentCpu,
           updated: updatedTimeStr,

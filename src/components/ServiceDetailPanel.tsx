@@ -13,6 +13,18 @@ interface ServiceDetailPanelProps {
   mutateServices: () => void;
 }
 
+interface DetailRow {
+  label: string;
+  value: React.ReactNode;
+  isMono?: boolean;
+  isCustom?: boolean;
+}
+
+interface DetailSection {
+  title: string;
+  rows: DetailRow[];
+}
+
 export function ServiceDetailPanel({
   service,
   onClose,
@@ -83,7 +95,7 @@ export function ServiceDetailPanel({
 
   if (!mounted) return null;
 
-  const sections = [
+  const sections: DetailSection[] = [
     {
       title: 'Service Details',
       rows: [

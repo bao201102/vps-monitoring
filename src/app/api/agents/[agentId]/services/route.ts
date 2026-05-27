@@ -72,7 +72,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
     cpu10m: s.cpu10m,
     cpuPeak: s.cpuPeak,
     memory: s.memory,
-    memoryPeak: s.memoryPeak,
+    memoryPeak: s.memoryPeak ?? null,
     updated: s.updatedAt ? s.updatedAt.toISOString() : (s.updated || new Date().toISOString()),
     // Extended metadata
     fragmentPath: s.fragmentPath ?? null,
@@ -92,7 +92,6 @@ export async function GET(_req: Request, { params }: RouteContext) {
     statusText: s.statusText ?? null,
     result: s.result ?? null,
     cpuUsageNSec: s.cpuUsageNSec ?? null,
-    memoryPeak: s.memoryPeak ?? null,
     memoryLimit: s.memoryLimit ?? null,
     canStart: s.canStart ?? "Yes",
     canStop: s.canStop ?? "Yes",
