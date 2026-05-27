@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { connectDB } from '@/lib/db';
 import { Agent } from '@/lib/models/Agent';
-import { AgentCommand } from '@/lib/models/AgentCommand';
 import { SystemService } from '@/lib/models/SystemService';
 import { getSessionFromCookies } from '@/lib/auth';
 
@@ -12,11 +10,6 @@ export const dynamic = 'force-dynamic';
 interface RouteContext {
   params: { agentId: string };
 }
-
-const serviceSchema = z.object({
-  serviceName: z.string().min(1),
-  action: z.enum(['start', 'stop', 'restart']),
-});
 
 const MOCK_SERVICES: Record<string, any[]> = {
   'instance-20260414-1357': [
@@ -92,55 +85,19 @@ export async function GET(_req: Request, { params }: RouteContext) {
     unitFileState: s.unitFileState ?? null,
     loadState: s.loadState ?? null,
     activeEnterTimestamp: s.activeEnterTimestamp ?? null,
+    wants: s.wants ?? [],
+    conflicts: s.conflicts ?? [],
+    before: s.before ?? [],
+    after: s.after ?? [],
+    statusText: s.statusText ?? null,
+    result: s.result ?? null,
+    cpuUsageNSec: s.cpuUsageNSec ?? null,
+    memoryPeak: s.memoryPeak ?? null,
+    memoryLimit: s.memoryLimit ?? null,
+    canStart: s.canStart ?? "Yes",
+    canStop: s.canStop ?? "Yes",
+    canReload: s.canReload ?? "No",
   }));
 
   return NextResponse.json({ services: result });
-}
-
-export async function POST(req: Request, { params }: RouteContext) {
-  const session = await getSessionFromCookies();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const body = await req.json().catch(() => null);
-  const parsed = serviceSchema.safeParse(body);
-  if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid input', details: parsed.error.flatten() }, { status: 400 });
-  }
-
-  await connectDB();
-
-  // Validate agent ownership
-  const agent = await Agent.findOne({ agentId: params.agentId, userId: session.sub }).lean();
-  if (!agent) {
-    return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
-  }
-
-  // Create pending command in database
-  const command = await AgentCommand.create({
-    agentId: params.agentId,
-    action: parsed.data.action,
-    service: parsed.data.serviceName,
-    status: 'pending',
-  });
-
-  // Long poll for agent execution (up to 3 seconds)
-  const maxAttempts = 10;
-  const delayMs = 300;
-
-  for (let i = 0; i < maxAttempts; i++) {
-    await new Promise((resolve) => setTimeout(resolve, delayMs));
-
-    const checkCmd = await AgentCommand.findById(command._id).lean();
-    if (checkCmd) {
-      if (checkCmd.status === 'done') {
-        return NextResponse.json({ ok: true, status: 'done', commandId: command._id });
-      }
-      if (checkCmd.status === 'failed') {
-        return NextResponse.json({ ok: true, status: 'failed', error: 'Command execution failed on VPS', commandId: command._id });
-      }
-    }
-  }
-
-  // Return pending state if command execution is taking longer
-  return NextResponse.json({ ok: true, status: 'pending', commandId: command._id });
 }

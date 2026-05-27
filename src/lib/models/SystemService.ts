@@ -22,6 +22,17 @@ export interface ISystemService {
   unitFileState?: string;     // enabled, disabled, static, etc.
   loadState?: string;         // loaded, not-found, masked, etc.
   activeEnterTimestamp?: string; // ISO string when service last became active
+  wants?: string[];
+  conflicts?: string[];
+  before?: string[];
+  after?: string[];
+  statusText?: string;
+  result?: string;
+  cpuUsageNSec?: number;
+  memoryLimit?: number;
+  canStart?: string;
+  canStop?: string;
+  canReload?: string;
 }
 
 export interface ISystemServiceDocument extends ISystemService, Document {}
@@ -49,6 +60,17 @@ const SystemServiceSchema = new Schema<ISystemService>(
     unitFileState: { type: String },
     loadState: { type: String },
     activeEnterTimestamp: { type: String },
+    wants: { type: [String], default: undefined },
+    conflicts: { type: [String], default: undefined },
+    before: { type: [String], default: undefined },
+    after: { type: [String], default: undefined },
+    statusText: { type: String },
+    result: { type: String },
+    cpuUsageNSec: { type: Number },
+    memoryLimit: { type: Number },
+    canStart: { type: String },
+    canStop: { type: String },
+    canReload: { type: String },
   },
   { timestamps: true }
 );

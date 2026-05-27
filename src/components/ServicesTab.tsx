@@ -36,6 +36,17 @@ export interface ServiceData {
   unitFileState?: string | null;
   loadState?: string | null;
   activeEnterTimestamp?: string | null;
+  wants?: string[];
+  conflicts?: string[];
+  before?: string[];
+  after?: string[];
+  statusText?: string | null;
+  result?: string | null;
+  cpuUsageNSec?: number | null;
+  memoryLimit?: number | null;
+  canStart?: string;
+  canStop?: string;
+  canReload?: string;
 }
 
 interface ServicesTabProps {

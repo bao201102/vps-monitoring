@@ -401,62 +401,53 @@ read_services() {
   # Query all services details in one command to keep it fast
   # shellcheck disable=SC2086
   local show_output
-  show_output=$(systemctl show $services -p Id -p Description -p ActiveState -p SubState -p MemoryCurrent 2>/dev/null || true)
-
-  local raw_data
-  raw_data=$(
-    local name="" desc="" active="" sub="" mem=0
-    while IFS= read -r line; do
-      if [ -z "$line" ]; then
-        if [ -n "$name" ]; then
-          local clean_name="${name%.service}"
-          local state_cap="Inactive"
-          if [ "$active" = "active" ]; then state_cap="Active"; fi
-          if [ "$active" = "failed" ] || [ "$sub" = "failed" ]; then state_cap="Failed"; fi
-          
-          local sub_cap="Dead"
-          if [ "$sub" = "running" ]; then sub_cap="Running"; fi
-          if [ "$sub" = "exited" ]; then sub_cap="Exited"; fi
-          if [ "$sub" = "failed" ]; then sub_cap="Failed"; fi
-
-          echo "$clean_name|$desc|$state_cap|$sub_cap|$mem"
-        fi
-        name=""; desc=""; active=""; sub=""; mem=0
-        continue
-      fi
-      case "$line" in
-        Id=*) name="${line#Id=}" ;;
-        Description=*) desc="${line#Description=}" ;;
-        ActiveState=*) active="${line#ActiveState=}" ;;
-        SubState=*) sub="${line#SubState=}" ;;
-        MemoryCurrent=*) 
-          mem="${line#MemoryCurrent=}"
-          if [ "$mem" = "[not set]" ] || [ -z "$mem" ] || [ "$mem" = "N/A" ]; then mem=0; fi
-          ;;
-      esac
-    done <<< "$show_output"
-
-    if [ -n "$name" ]; then
-      local clean_name="${name%.service}"
-      local state_cap="Inactive"
-      if [ "$active" = "active" ]; then state_cap="Active"; fi
-      if [ "$active" = "failed" ] || [ "$sub" = "failed" ]; then state_cap="Failed"; fi
-      
-      local sub_cap="Dead"
-      if [ "$sub" = "running" ]; then sub_cap="Running"; fi
-      if [ "$sub" = "exited" ]; then sub_cap="Exited"; fi
-      if [ "$sub" = "failed" ]; then sub_cap="Failed"; fi
-
-      echo "$clean_name|$desc|$state_cap|$sub_cap|$mem"
-    fi
-  )
+  show_output=$(systemctl show $services \
+    -p Id -p Description -p ActiveState -p SubState -p MemoryCurrent \
+    -p LoadState -p UnitFileState -p FragmentPath -p MainPID \
+    -p TasksCurrent -p TasksMax -p CPUUsageNSec -p MemoryPeak \
+    -p MemoryMax -p NRestarts -p Wants -p Requires -p Conflicts \
+    -p Before -p After -p ActiveEnterTimestamp -p ExecReload \
+    -p StatusText -p Result -p Documentation 2>/dev/null || true)
 
   local services_json
-  services_json=$(jq -R -s '
-    split("\n") | 
-    map(select(length > 0) | split("|")) | 
-    map({name: .[0], description: .[1], state: .[2], subState: .[3], memory: (.[4] | tonumber)})
-  ' <<< "$raw_data" 2>/dev/null || echo "[]")
+  services_json=$(jq -s -R '
+    gsub("\r"; "") | split("\n\n") | map(
+      split("\n") | map(
+        capture("^(?<key>[^=]+)=(?<value>.*)$")?
+      ) | del(..|nulls) | select(length > 0) | from_entries |
+      {
+        name: (.Id // ""),
+        description: (.Description // ""),
+        state: (if .ActiveState == "active" then "Active" elif (.ActiveState == "failed" or .SubState == "failed") then "Failed" else "Inactive" end),
+        subState: (if .SubState == "running" then "Running" elif .SubState == "exited" then "Exited" elif .SubState == "failed" then "Failed" else "Dead" end),
+        memory: (if .MemoryCurrent == "[not set]" or .MemoryCurrent == "N/A" or .MemoryCurrent == "" then 0 else (.MemoryCurrent | tonumber) end),
+        cpuPercent: 0,
+        fragmentPath: (if .FragmentPath == "" or .FragmentPath == "/dev/null" then null else .FragmentPath end),
+        mainPid: (if .MainPID == "" or .MainPID == "0" then null else (.MainPID | tonumber) end),
+        nRestarts: (if .NRestarts == "" then 0 else (.NRestarts | tonumber) end),
+        tasksCurrent: (if .TasksCurrent == "" or .TasksCurrent == "[not set]" then null else (.TasksCurrent | tonumber) end),
+        tasksMax: (if .TasksMax == "" or .TasksMax == "[not set]" or .TasksMax == "infinity" or .TasksMax == "18446744073709551615" then null else (.TasksMax | tonumber) end),
+        requires: (if .Requires == "" or .Requires == null then [] else (.Requires | split(" ")) end),
+        wants: (if .Wants == "" or .Wants == null then [] else (.Wants | split(" ")) end),
+        conflicts: (if .Conflicts == "" or .Conflicts == null then [] else (.Conflicts | split(" ")) end),
+        before: (if .Before == "" or .Before == null then [] else (.Before | split(" ")) end),
+        after: (if .After == "" or .After == null then [] else (.After | split(" ")) end),
+        documentation: (if .Documentation == "" or .Documentation == null then [] else (.Documentation | split(" ")) end),
+        unitFileState: (.UnitFileState // null),
+        loadState: (.LoadState // null),
+        activeEnterTimestamp: (if .ActiveEnterTimestamp == "" or .ActiveEnterTimestamp == "[not set]" then null else .ActiveEnterTimestamp end),
+        statusText: (if .StatusText == "" then null else .StatusText end),
+        result: (if .Result == "" then null else .Result end),
+        cpuUsageNSec: (if .CPUUsageNSec == "" or .CPUUsageNSec == "[not set]" then null else (.CPUUsageNSec | tonumber) end),
+        memoryPeak: (if .MemoryPeak == "" or .MemoryPeak == "[not set]" or .MemoryPeak == "18446744073709551615" then null else (.MemoryPeak | tonumber) end),
+        memoryLimit: (if .MemoryMax == "" or .MemoryMax == "[not set]" or .MemoryMax == "infinity" or .MemoryMax == "18446744073709551615" then null else (.MemoryMax | tonumber) end),
+        canStart: "Yes",
+        canStop: "Yes",
+        canReload: (if .ExecReload != "" and .ExecReload != null then "Yes" else "No" end)
+      } |
+      .name = (.name | rtrimstr(".service"))
+    )
+  ' <<< "$show_output" 2>/dev/null || echo "[]")
 
   echo "$services_json"
 }
