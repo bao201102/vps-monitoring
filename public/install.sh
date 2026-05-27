@@ -392,7 +392,7 @@ read_services() {
   fi
 
   local services
-  services=$(systemctl list-units --type=service --no-legend --all | awk '{print $1}' || true)
+  services=$(systemctl list-units --type=service --state=active --no-legend --all | awk '{print $1}' || true)
   if [ -z "$services" ]; then
     echo "[]"
     return

@@ -50,8 +50,8 @@ export async function GET(req: Request) {
     
     const hasMetric = m && (m.dockerCpuPercent > 0 || m.dockerMemUsedBytes > 0);
     const updatedTime = m?.ts
-      ? format(new Date(m.ts), 'h:mm:ss a')
-      : format(new Date(), 'h:mm:ss a');
+      ? new Date(m.ts).toISOString()
+      : new Date().toISOString();
 
     return {
       name: c.name,

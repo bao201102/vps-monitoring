@@ -11,6 +11,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import useSWR from 'swr';
+import { format } from 'date-fns';
 import { formatBytes, cn } from '@/lib/utils';
 import { ServiceDetailPanel } from './ServiceDetailPanel';
 
@@ -42,6 +43,19 @@ interface ServicesTabProps {
   agentLabel?: string;
   agentHostname?: string;
 }
+
+const formatUpdatedTime = (updatedStr: string) => {
+  if (!updatedStr) return '—';
+  try {
+    const d = new Date(updatedStr);
+    if (!isNaN(d.getTime())) {
+      if (updatedStr.includes('-') || updatedStr.includes('/') || updatedStr.includes('T')) {
+        return format(d, 'h:mm:ss a');
+      }
+    }
+  } catch (e) {}
+  return updatedStr;
+};
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -293,7 +307,7 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
 
                     {/* Updated */}
                     <td className="py-3.5 px-4 text-ink-soft font-mono">
-                      {service.updated}
+                      {formatUpdatedTime(service.updated)}
                     </td>
                   </tr>
                 );

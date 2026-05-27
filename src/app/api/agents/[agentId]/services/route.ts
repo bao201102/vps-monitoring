@@ -80,7 +80,7 @@ export async function GET(_req: Request, { params }: RouteContext) {
     cpuPeak: s.cpuPeak,
     memory: s.memory,
     memoryPeak: s.memoryPeak,
-    updated: s.updated,
+    updated: s.updatedAt ? s.updatedAt.toISOString() : (s.updated || new Date().toISOString()),
     // Extended metadata
     fragmentPath: s.fragmentPath ?? null,
     mainPid: s.mainPid ?? null,

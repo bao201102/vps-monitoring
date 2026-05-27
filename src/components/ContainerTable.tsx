@@ -15,6 +15,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { formatBytes, formatBps, cn } from '@/lib/utils';
+import { format } from 'date-fns';
 
 export interface ContainerData {
   name: string;
@@ -33,6 +34,19 @@ export interface ContainerData {
   netWeight?: number;
   color?: string;
 }
+
+const formatUpdatedTime = (updatedStr: string) => {
+  if (!updatedStr) return '—';
+  try {
+    const d = new Date(updatedStr);
+    if (!isNaN(d.getTime())) {
+      if (updatedStr.includes('-') || updatedStr.includes('/') || updatedStr.includes('T')) {
+        return format(d, 'h:mm:ss a');
+      }
+    }
+  } catch (e) {}
+  return updatedStr;
+};
 
 interface ContainerTableProps {
   containers: ContainerData[];
@@ -256,7 +270,7 @@ export function ContainerTable({
                       {container.status}
                     </td>
                     <td className="py-3.5 px-4 text-ink-soft">
-                      {container.updated}
+                      {formatUpdatedTime(container.updated)}
                     </td>
                   </tr>
                 );

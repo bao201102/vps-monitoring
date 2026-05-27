@@ -150,10 +150,13 @@ export async function POST(req: Request) {
 
   // Process and update SystemService records from the heartbeat payload
   if (parsed.data.services) {
+    const reportedNames = parsed.data.services.map(s => s.name);
+    await SystemService.deleteMany({ agentId: agent.agentId, name: { $nin: reportedNames } });
+
     for (const s of parsed.data.services) {
       const existing = await SystemService.findOne({ agentId: agent.agentId, name: s.name });
       const nowTime = new Date();
-      const updatedTimeStr = nowTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
+      const updatedTimeStr = nowTime.toISOString();
 
       const isRunning = s.subState === 'Running';
       // Use actual cpuPercent from agent; fallback 0 for non-running services
