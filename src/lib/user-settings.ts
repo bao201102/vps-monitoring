@@ -1,5 +1,6 @@
 import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models/User';
+import { Agent } from '@/lib/models/Agent';
 import {
   sanitizeTelegramBotToken,
   sanitizeTelegramChatId,
@@ -12,8 +13,14 @@ export type PublicUserAlertSettings = {
   telegramChatId: string;
   telegramTopicId: string;
   alertCpuPercent: number;
+  alertCpuEnabled: boolean;
   alertRamPercent: number;
+  alertRamEnabled: boolean;
   alertDiskPercent: number;
+  alertDiskEnabled: boolean;
+  alertTempLimit: number;
+  alertTempEnabled: boolean;
+  alertOfflineEnabled: boolean;
   telegramCooldownSeconds: number;
 };
 
@@ -28,8 +35,14 @@ export async function getUserAlertSettings(userId: string): Promise<PublicUserAl
     telegramChatId: user.telegramChatId ?? '',
     telegramTopicId: user.telegramTopicId ?? '',
     alertCpuPercent: user.alertCpuPercent ?? 85,
+    alertCpuEnabled: user.alertCpuEnabled !== false,
     alertRamPercent: user.alertRamPercent ?? 85,
+    alertRamEnabled: user.alertRamEnabled !== false,
     alertDiskPercent: user.alertDiskPercent ?? 90,
+    alertDiskEnabled: user.alertDiskEnabled !== false,
+    alertTempLimit: user.alertTempLimit ?? 80,
+    alertTempEnabled: Boolean(user.alertTempEnabled),
+    alertOfflineEnabled: user.alertOfflineEnabled !== false,
     telegramCooldownSeconds: user.telegramCooldownSeconds ?? 300,
   };
 }
@@ -40,8 +53,14 @@ export type UpdateUserAppSettingsInput = {
   telegramChatId?: string;
   telegramTopicId?: string;
   alertCpuPercent?: number;
+  alertCpuEnabled?: boolean;
   alertRamPercent?: number;
+  alertRamEnabled?: boolean;
   alertDiskPercent?: number;
+  alertDiskEnabled?: boolean;
+  alertTempLimit?: number;
+  alertTempEnabled?: boolean;
+  alertOfflineEnabled?: boolean;
   telegramCooldownSeconds?: number;
 };
 
@@ -81,11 +100,29 @@ export async function updateUserAlertSettings(
   if (input.alertCpuPercent !== undefined) {
     user.alertCpuPercent = Math.max(1, Math.min(100, Math.round(input.alertCpuPercent)));
   }
+  if (input.alertCpuEnabled !== undefined) {
+    user.alertCpuEnabled = input.alertCpuEnabled;
+  }
   if (input.alertRamPercent !== undefined) {
     user.alertRamPercent = Math.max(1, Math.min(100, Math.round(input.alertRamPercent)));
   }
+  if (input.alertRamEnabled !== undefined) {
+    user.alertRamEnabled = input.alertRamEnabled;
+  }
   if (input.alertDiskPercent !== undefined) {
     user.alertDiskPercent = Math.max(1, Math.min(100, Math.round(input.alertDiskPercent)));
+  }
+  if (input.alertDiskEnabled !== undefined) {
+    user.alertDiskEnabled = input.alertDiskEnabled;
+  }
+  if (input.alertTempLimit !== undefined) {
+    user.alertTempLimit = Math.max(1, Math.min(150, Math.round(input.alertTempLimit)));
+  }
+  if (input.alertTempEnabled !== undefined) {
+    user.alertTempEnabled = input.alertTempEnabled;
+  }
+  if (input.alertOfflineEnabled !== undefined) {
+    user.alertOfflineEnabled = input.alertOfflineEnabled;
   }
   if (input.telegramCooldownSeconds !== undefined) {
     const c = Math.round(input.telegramCooldownSeconds);
@@ -93,15 +130,54 @@ export async function updateUserAlertSettings(
   }
 
   await user.save();
-  return {
-    botTokenConfigured: Boolean(user.telegramBotToken),
-    telegramChatId: user.telegramChatId ?? '',
-    telegramTopicId: user.telegramTopicId ?? '',
-    alertCpuPercent: user.alertCpuPercent,
-    alertRamPercent: user.alertRamPercent,
-    alertDiskPercent: user.alertDiskPercent,
-    telegramCooldownSeconds: user.telegramCooldownSeconds,
-  };
+  return getUserAlertSettings(userId);
+}
+
+export type AgentAlertSettingsInput = {
+  alertsUseGlobal: boolean;
+  alertCpuEnabled?: boolean;
+  alertCpuPercent?: number;
+  alertRamEnabled?: boolean;
+  alertRamPercent?: number;
+  alertDiskEnabled?: boolean;
+  alertDiskPercent?: number;
+  alertTempEnabled?: boolean;
+  alertTempLimit?: number;
+  alertOfflineEnabled?: boolean;
+};
+
+export async function updateAgentAlertSettings(
+  userId: string,
+  agentId: string,
+  input: AgentAlertSettingsInput
+) {
+  await connectDB();
+  const agent = await Agent.findOne({ agentId, userId });
+  if (!agent) {
+    throw new Error('Agent not found or unauthorized');
+  }
+
+  agent.alertsUseGlobal = input.alertsUseGlobal;
+  if (input.alertCpuEnabled !== undefined) agent.alertCpuEnabled = input.alertCpuEnabled;
+  if (input.alertCpuPercent !== undefined) {
+    agent.alertCpuPercent = Math.max(1, Math.min(100, Math.round(input.alertCpuPercent)));
+  }
+  if (input.alertRamEnabled !== undefined) agent.alertRamEnabled = input.alertRamEnabled;
+  if (input.alertRamPercent !== undefined) {
+    agent.alertRamPercent = Math.max(1, Math.min(100, Math.round(input.alertRamPercent)));
+  }
+  if (input.alertDiskEnabled !== undefined) agent.alertDiskEnabled = input.alertDiskEnabled;
+  if (input.alertDiskPercent !== undefined) {
+    agent.alertDiskPercent = Math.max(1, Math.min(100, Math.round(input.alertDiskPercent)));
+  }
+  if (input.alertTempEnabled !== undefined) agent.alertTempEnabled = input.alertTempEnabled;
+  if (input.alertTempLimit !== undefined) {
+    agent.alertTempLimit = Math.max(1, Math.min(150, Math.round(input.alertTempLimit)));
+  }
+  if (input.alertOfflineEnabled !== undefined) agent.alertOfflineEnabled = input.alertOfflineEnabled;
+
+  await agent.save();
+  return agent.toObject();
 }
 
 export async function getUserResolvedAlertSettings(userId: string) {
@@ -116,9 +192,17 @@ export async function getUserResolvedAlertSettings(userId: string) {
     telegramBotToken: token || undefined,
     telegramChatId: chat || undefined,
     telegramTopicId: user.telegramTopicId?.trim() || undefined,
-    alertCpuPercent: user.alertCpuPercent ?? 85,
-    alertRamPercent: user.alertRamPercent ?? 85,
-    alertDiskPercent: user.alertDiskPercent ?? 90,
     telegramCooldownSeconds: user.telegramCooldownSeconds ?? 300,
+    
+    // Global rule settings
+    alertCpuPercent: user.alertCpuPercent ?? 85,
+    alertCpuEnabled: user.alertCpuEnabled !== false,
+    alertRamPercent: user.alertRamPercent ?? 85,
+    alertRamEnabled: user.alertRamEnabled !== false,
+    alertDiskPercent: user.alertDiskPercent ?? 90,
+    alertDiskEnabled: user.alertDiskEnabled !== false,
+    alertTempLimit: user.alertTempLimit ?? 80,
+    alertTempEnabled: Boolean(user.alertTempEnabled),
+    alertOfflineEnabled: user.alertOfflineEnabled !== false,
   };
 }

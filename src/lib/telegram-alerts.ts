@@ -1,4 +1,3 @@
-import type { ResolvedAppSettings } from './app-settings';
 import type { TelegramCallError, TelegramCallOk } from './telegram-client';
 import { telegramSendMessageHtml } from './telegram-client';
 import { formatBytes, percent } from './utils';
@@ -7,7 +6,25 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-export function isTelegramAlertsConfigured(settings: ResolvedAppSettings): boolean {
+export type AlertSettings = {
+  telegramBotToken?: string;
+  telegramChatId?: string;
+  telegramTopicId?: string;
+  telegramCooldownSeconds: number;
+  
+  // Rule triggers
+  alertCpuPercent: number;
+  alertCpuEnabled?: boolean;
+  alertRamPercent: number;
+  alertRamEnabled?: boolean;
+  alertDiskPercent: number;
+  alertDiskEnabled?: boolean;
+  alertTempLimit?: number;
+  alertTempEnabled?: boolean;
+  alertOfflineEnabled?: boolean;
+};
+
+export function isTelegramAlertsConfigured(settings: AlertSettings): boolean {
   return Boolean(settings.telegramBotToken && settings.telegramChatId);
 }
 
@@ -17,6 +34,8 @@ export type HeartbeatForAlert = {
   memTotalBytes: number;
   diskUsedBytes: number;
   diskTotalBytes: number;
+  temperatureC: number;
+  temperatures?: Record<string, number>;
 };
 
 export type AgentDisconnectReason = 'offline' | 'shutdown';
@@ -28,27 +47,54 @@ export type AgentForDisconnectAlert = {
   publicIp?: string | null;
   lastSeenAt?: Date | string | null;
   lastTelegramOfflineAlertAt?: Date | string | null;
+  
+  // Alerts overrides
+  alertsUseGlobal?: boolean;
+  alertCpuEnabled?: boolean;
+  alertCpuPercent?: number;
+  alertRamEnabled?: boolean;
+  alertRamPercent?: number;
+  alertDiskEnabled?: boolean;
+  alertDiskPercent?: number;
+  alertTempEnabled?: boolean;
+  alertTempLimit?: number;
+  alertOfflineEnabled?: boolean;
 };
 
-export function evaluateOverload(
-  m: HeartbeatForAlert,
-  thresholds: { cpu: number; ram: number; disk: number }
-): {
-  ramPct: number;
-  diskPct: number;
-  cpuHigh: boolean;
-  ramHigh: boolean;
-  diskHigh: boolean;
-} {
-  const ramPct = percent(m.memUsedBytes, m.memTotalBytes);
-  const diskPct = percent(m.diskUsedBytes, m.diskTotalBytes);
+// Resolve alert thresholds based on agent overrides
+export function resolveAgentAlertSettings(
+  agent: AgentForDisconnectAlert,
+  settings: AlertSettings
+) {
+  const useGlobal = agent.alertsUseGlobal !== false;
   return {
-    ramPct,
-    diskPct,
-    cpuHigh: m.cpuPercent >= thresholds.cpu,
-    ramHigh: ramPct >= thresholds.ram,
-    diskHigh: diskPct >= thresholds.disk,
+    cpuEnabled: useGlobal ? (settings.alertCpuEnabled !== false) : (agent.alertCpuEnabled !== false),
+    cpuLimit: useGlobal ? settings.alertCpuPercent : (agent.alertCpuPercent ?? 85),
+    ramEnabled: useGlobal ? (settings.alertRamEnabled !== false) : (agent.alertRamEnabled !== false),
+    ramLimit: useGlobal ? settings.alertRamPercent : (agent.alertRamPercent ?? 85),
+    diskEnabled: useGlobal ? (settings.alertDiskEnabled !== false) : (agent.alertDiskEnabled !== false),
+    diskLimit: useGlobal ? settings.alertDiskPercent : (agent.alertDiskPercent ?? 90),
+    tempEnabled: useGlobal ? Boolean(settings.alertTempEnabled) : Boolean(agent.alertTempEnabled),
+    tempLimit: useGlobal ? (settings.alertTempLimit ?? 80) : (agent.alertTempLimit ?? 80),
+    offlineEnabled: useGlobal ? (settings.alertOfflineEnabled !== false) : (agent.alertOfflineEnabled !== false),
   };
+}
+
+export function shouldSendTelegramDisconnectAlert(
+  agent: AgentForDisconnectAlert,
+  settings: AlertSettings
+): boolean {
+  const resolved = resolveAgentAlertSettings(agent, settings);
+  if (!resolved.offlineEnabled) return false;
+
+  if (!agent.lastSeenAt) return false;
+  const lastSeen = new Date(agent.lastSeenAt).getTime();
+  if (!Number.isFinite(lastSeen)) return false;
+
+  const lastAlert = agent.lastTelegramOfflineAlertAt
+    ? new Date(agent.lastTelegramOfflineAlertAt).getTime()
+    : 0;
+  return !lastAlert || lastAlert < lastSeen;
 }
 
 /**
@@ -62,20 +108,52 @@ export async function sendTelegramOverloadIfNeeded(
     label?: string | null;
     publicIp?: string | null;
     lastTelegramAlertAt?: Date | null;
+    
+    // Alerts overrides
+    alertsUseGlobal?: boolean;
+    alertCpuEnabled?: boolean;
+    alertCpuPercent?: number;
+    alertRamEnabled?: boolean;
+    alertRamPercent?: number;
+    alertDiskEnabled?: boolean;
+    alertDiskPercent?: number;
+    alertTempEnabled?: boolean;
+    alertTempLimit?: number;
+    alertOfflineEnabled?: boolean;
   },
   m: HeartbeatForAlert,
-  settings: ResolvedAppSettings,
+  settings: AlertSettings,
   appUrl: string
 ): Promise<boolean> {
   if (!isTelegramAlertsConfigured(settings)) return false;
 
-  const thresholds = {
-    cpu: settings.alertCpuPercent,
-    ram: settings.alertRamPercent,
-    disk: settings.alertDiskPercent,
-  };
-  const ev = evaluateOverload(m, thresholds);
-  if (!ev.cpuHigh && !ev.ramHigh && !ev.diskHigh) return false;
+  const resolved = resolveAgentAlertSettings(agent, settings);
+
+  // Evaluate metric thresholds
+  const ramPct = percent(m.memUsedBytes, m.memTotalBytes);
+  const diskPct = percent(m.diskUsedBytes, m.diskTotalBytes);
+
+  const cpuHigh = resolved.cpuEnabled && m.cpuPercent >= resolved.cpuLimit;
+  const ramHigh = resolved.ramEnabled && ramPct >= resolved.ramLimit;
+  const diskHigh = resolved.diskEnabled && diskPct >= resolved.diskLimit;
+
+  // Temperature check
+  let tempHigh = false;
+  let triggeredSensor = '';
+  let triggeredTempValue = 0;
+
+  if (resolved.tempEnabled) {
+    const temps = m.temperatures || (m.temperatureC > 0 ? { 'Temperature': m.temperatureC } : {});
+    for (const [sensor, val] of Object.entries(temps)) {
+      if (val >= resolved.tempLimit && val > triggeredTempValue) {
+        triggeredTempValue = val;
+        triggeredSensor = sensor;
+        tempHigh = true;
+      }
+    }
+  }
+
+  if (!cpuHigh && !ramHigh && !diskHigh && !tempHigh) return false;
 
   const cooldownMs = settings.telegramCooldownSeconds * 1000;
   const last = agent.lastTelegramAlertAt ? new Date(agent.lastTelegramAlertAt).getTime() : 0;
@@ -89,21 +167,26 @@ export async function sendTelegramOverloadIfNeeded(
   ];
   if (agent.publicIp) lines.push(`<b>IP:</b> <code>${escapeHtml(agent.publicIp)}</code>`);
 
-  if (ev.cpuHigh) {
-    lines.push(`<b>CPU:</b> ${m.cpuPercent.toFixed(1)}% <i>(≥ ${thresholds.cpu}%)</i>`);
+  if (cpuHigh) {
+    lines.push(`<b>CPU:</b> ${m.cpuPercent.toFixed(1)}% <i>(≥ ${resolved.cpuLimit}%)</i>`);
   }
-  if (ev.ramHigh) {
+  if (ramHigh) {
     lines.push(
-      `<b>RAM:</b> ${ev.ramPct.toFixed(1)}% — ${formatBytes(m.memUsedBytes)} / ${formatBytes(
+      `<b>RAM:</b> ${ramPct.toFixed(1)}% — ${formatBytes(m.memUsedBytes)} / ${formatBytes(
         m.memTotalBytes
-      )} <i>(≥ ${thresholds.ram}%)</i>`
+      )} <i>(≥ ${resolved.ramLimit}%)</i>`
     );
   }
-  if (ev.diskHigh) {
+  if (diskHigh) {
     lines.push(
-      `<b>Ổ đĩa (/):</b> ${ev.diskPct.toFixed(1)}% — ${formatBytes(m.diskUsedBytes)} / ${formatBytes(
+      `<b>Ổ đĩa (/):</b> ${diskPct.toFixed(1)}% — ${formatBytes(m.diskUsedBytes)} / ${formatBytes(
         m.diskTotalBytes
-      )} <i>(≥ ${thresholds.disk}%)</i>`
+      )} <i>(≥ ${resolved.diskLimit}%)</i>`
+    );
+  }
+  if (tempHigh) {
+    lines.push(
+      `<b>Nhiệt độ (${escapeHtml(triggeredSensor)}):</b> ${triggeredTempValue.toFixed(1)}°C <i>(≥ ${resolved.tempLimit}°C)</i>`
     );
   }
 
@@ -125,29 +208,18 @@ export async function sendTelegramOverloadIfNeeded(
   return true;
 }
 
-export function shouldSendTelegramDisconnectAlert(agent: AgentForDisconnectAlert): boolean {
-  if (!agent.lastSeenAt) return false;
-  const lastSeen = new Date(agent.lastSeenAt).getTime();
-  if (!Number.isFinite(lastSeen)) return false;
-
-  const lastAlert = agent.lastTelegramOfflineAlertAt
-    ? new Date(agent.lastTelegramOfflineAlertAt).getTime()
-    : 0;
-  return !lastAlert || lastAlert < lastSeen;
-}
-
 /**
  * Sends one Telegram message for each offline/shutdown incident.
  * The caller must persist lastTelegramOfflineAlertAt when this returns true.
  */
 export async function sendTelegramDisconnectIfNeeded(
   agent: AgentForDisconnectAlert,
-  settings: ResolvedAppSettings,
+  settings: AlertSettings,
   appUrl: string,
   reason: AgentDisconnectReason
 ): Promise<boolean> {
   if (!isTelegramAlertsConfigured(settings)) return false;
-  if (!shouldSendTelegramDisconnectAlert(agent)) return false;
+  if (!shouldSendTelegramDisconnectAlert(agent, settings)) return false;
 
   const displayName = (agent.label?.trim() || agent.hostname || agent.agentId).slice(0, 200);
   const title =
@@ -180,6 +252,7 @@ export async function sendTelegramDisconnectIfNeeded(
     lines.join('\n'),
     settings.telegramTopicId
   );
+
   if (!result.ok) {
     console.error('[telegram] sendMessage failed:', result.httpStatus, result.description);
     return false;
@@ -188,13 +261,13 @@ export async function sendTelegramDisconnectIfNeeded(
 }
 
 /** Sends a short test message (Settings → “Gửi tin thử”). */
-export async function sendTelegramSettingsTest(settings: ResolvedAppSettings): Promise<boolean> {
+export async function sendTelegramSettingsTest(settings: AlertSettings): Promise<boolean> {
   const r = await sendTelegramSettingsTestResult(settings);
   return r.ok;
 }
 
 export async function sendTelegramSettingsTestResult(
-  settings: ResolvedAppSettings
+  settings: AlertSettings
 ): Promise<TelegramCallOk | TelegramCallError> {
   if (!isTelegramAlertsConfigured(settings)) {
     return { ok: false, httpStatus: 400, description: 'Chưa cấu hình bot token + chat id.' };

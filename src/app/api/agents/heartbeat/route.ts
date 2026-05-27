@@ -338,6 +338,8 @@ export async function POST(req: Request) {
       memTotalBytes: parsed.data.memTotalBytes,
       diskUsedBytes: parsed.data.diskUsedBytes,
       diskTotalBytes: parsed.data.diskTotalBytes,
+      temperatureC: parsed.data.temperatureC,
+      temperatures: parsed.data.temperatures,
     },
     appSettings,
     env.APP_URL

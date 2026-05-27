@@ -23,6 +23,19 @@ export interface IAgent {
   lastTelegramOfflineAlertAt?: Date;
   userId: string;
   registeredAt: Date;
+  
+  // Alert settings overrides (Beszel-style)
+  alertsUseGlobal: boolean;
+  alertCpuEnabled: boolean;
+  alertCpuPercent: number;
+  alertRamEnabled: boolean;
+  alertRamPercent: number;
+  alertDiskEnabled: boolean;
+  alertDiskPercent: number;
+  alertTempEnabled: boolean;
+  alertTempLimit: number;
+  alertOfflineEnabled: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -49,6 +62,18 @@ const AgentSchema = new Schema<IAgent>(
     lastTelegramAlertAt: { type: Date },
     lastTelegramOfflineAlertAt: { type: Date },
     registeredAt: { type: Date, default: () => new Date() },
+    
+    // Per-VPS Alert override configurations
+    alertsUseGlobal: { type: Boolean, default: true },
+    alertCpuEnabled: { type: Boolean, default: true },
+    alertCpuPercent: { type: Number, default: 85 },
+    alertRamEnabled: { type: Boolean, default: true },
+    alertRamPercent: { type: Number, default: 85 },
+    alertDiskEnabled: { type: Boolean, default: true },
+    alertDiskPercent: { type: Number, default: 90 },
+    alertTempEnabled: { type: Boolean, default: false },
+    alertTempLimit: { type: Number, default: 80 },
+    alertOfflineEnabled: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

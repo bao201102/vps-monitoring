@@ -8,8 +8,14 @@ export interface IUser {
   telegramChatId?: string;
   telegramTopicId?: string;
   alertCpuPercent: number;
+  alertCpuEnabled: boolean;
   alertRamPercent: number;
+  alertRamEnabled: boolean;
   alertDiskPercent: number;
+  alertDiskEnabled: boolean;
+  alertTempLimit: number;
+  alertTempEnabled: boolean;
+  alertOfflineEnabled: boolean;
   telegramCooldownSeconds: number;
   createdAt: Date;
   updatedAt: Date;
@@ -24,8 +30,14 @@ const UserSchema = new Schema<IUser>(
     telegramChatId: { type: String, default: '' },
     telegramTopicId: { type: String, default: '' },
     alertCpuPercent: { type: Number, default: 85 },
+    alertCpuEnabled: { type: Boolean, default: true },
     alertRamPercent: { type: Number, default: 85 },
+    alertRamEnabled: { type: Boolean, default: true },
     alertDiskPercent: { type: Number, default: 90 },
+    alertDiskEnabled: { type: Boolean, default: true },
+    alertTempLimit: { type: Number, default: 80 },
+    alertTempEnabled: { type: Boolean, default: false },
+    alertOfflineEnabled: { type: Boolean, default: true },
     telegramCooldownSeconds: { type: Number, default: 300 },
   },
   { timestamps: true }

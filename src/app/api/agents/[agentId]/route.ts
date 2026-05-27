@@ -33,14 +33,16 @@ export async function GET(_req: Request, { params }: RouteContext) {
     ? Date.now() - new Date(agent.lastSeenAt).getTime() <= offlineMs
     : false;
 
-  if (!online && shouldSendTelegramDisconnectAlert(agent)) {
+  if (!online) {
     const appSettings = await getUserResolvedAlertSettings(session.sub);
-    const sent = await sendTelegramDisconnectIfNeeded(agent, appSettings, env.APP_URL, 'offline');
-    if (sent) {
-      await Agent.updateOne(
-        { agentId: agent.agentId },
-        { $set: { lastTelegramOfflineAlertAt: new Date() } }
-      );
+    if (shouldSendTelegramDisconnectAlert(agent, appSettings)) {
+      const sent = await sendTelegramDisconnectIfNeeded(agent, appSettings, env.APP_URL, 'offline');
+      if (sent) {
+        await Agent.updateOne(
+          { agentId: agent.agentId },
+          { $set: { lastTelegramOfflineAlertAt: new Date() } }
+        );
+      }
     }
   }
 

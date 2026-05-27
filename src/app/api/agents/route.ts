@@ -121,13 +121,14 @@ export async function GET() {
     };
   });
 
+  const appSettings = await getUserResolvedAlertSettings(session.sub);
+
   const offlineAlertCandidates = agents.filter((a) => {
     const online =
       a.lastSeenAt && now - new Date(a.lastSeenAt).getTime() <= offlineMs ? true : false;
-    return !online && shouldSendTelegramDisconnectAlert(a);
+    return !online && shouldSendTelegramDisconnectAlert(a, appSettings);
   });
   if (offlineAlertCandidates.length > 0) {
-    const appSettings = await getUserResolvedAlertSettings(session.sub);
     for (const agent of offlineAlertCandidates) {
       const sent = await sendTelegramDisconnectIfNeeded(agent, appSettings, env.APP_URL, 'offline');
       if (sent) {
