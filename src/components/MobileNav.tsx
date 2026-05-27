@@ -26,7 +26,7 @@ export function MobileNav({ role }: { role: string }) {
               key={item.href}
               href={item.href}
               className={cn(
-                'flex flex-1 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium transition-colors',
+                'flex flex-1 flex-col items-center justify-center gap-1 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors',
                 active ? 'text-ink' : 'text-ink-muted'
               )}
             >

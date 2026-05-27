@@ -248,7 +248,7 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
                     <td className="py-3.5 px-4">
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+                          "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold border",
                           service.state === 'Active'
                             ? 'chip-success border-success/20'
                             : service.state === 'Failed'
@@ -274,7 +274,7 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
                     <td className="py-3.5 px-4">
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border",
+                          "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold border",
                           service.subState === 'Running'
                             ? 'chip-success border-success/20'
                             : service.subState === 'Failed'

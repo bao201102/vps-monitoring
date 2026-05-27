@@ -23,7 +23,7 @@ export function OsBadge({ os, version }: { os: string; version?: string }) {
       )}
     >
       {os || 'linux'}
-      {version && <span className="text-[10px] font-normal opacity-70">{version}</span>}
+      {version && <span className="text-xs font-normal opacity-70">{version}</span>}
     </span>
   );
 }

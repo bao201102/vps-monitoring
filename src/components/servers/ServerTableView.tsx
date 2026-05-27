@@ -328,7 +328,7 @@ export function ServerTableView({
                       <div className="font-semibold text-ink truncate">
                         {s.label || s.hostname}
                       </div>
-                      <div className="text-[10px] text-ink-soft truncate">
+                      <div className="text-xs text-ink-soft truncate">
                         {s.cpuCores} CPU · {formatBytes(s.totalMemoryBytes)} RAM
                       </div>
                     </div>

@@ -8,6 +8,14 @@ const config: Config = {
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
+      fontSize: {
+        xs: ['0.8125rem', { lineHeight: '1.125rem' }],   // 13px (minimum font size)
+        sm: ['0.875rem', { lineHeight: '1.25rem' }],     // 14px (standard sm)
+        base: ['0.96875rem', { lineHeight: '1.375rem' }], // 15.5px (comfortable body font)
+        lg: ['1.09375rem', { lineHeight: '1.5rem' }],     // 17.5px
+        xl: ['1.25rem', { lineHeight: '1.75rem' }],      // 20px
+        '2xl': ['1.5rem', { lineHeight: '2rem' }],       // 24px
+      },
       colors: {
         bg: {
           DEFAULT: 'rgb(var(--color-bg) / <alpha-value>)',

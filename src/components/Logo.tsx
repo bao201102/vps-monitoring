@@ -25,7 +25,7 @@ export function Logo({ className }: { className?: string }) {
       </div>
       <div className="leading-tight">
         <div className="text-[15px] font-semibold tracking-tight text-ink">VPS Monitor</div>
-        <div className="text-[10px] font-medium uppercase tracking-[0.18em] text-ink-soft">
+        <div className="text-xs font-medium uppercase tracking-[0.18em] text-ink-soft">
           Fleet Dashboard
         </div>
       </div>

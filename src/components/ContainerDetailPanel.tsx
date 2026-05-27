@@ -115,7 +115,7 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
               <span className="text-border">•</span>
               <span className="text-ink truncate max-w-[150px]" title={container.image}>{container.image}</span>
               <span className="text-border">•</span>
-              <span className="font-mono text-[10px] text-ink-soft bg-bg-muted px-1.5 py-0.5 rounded border border-border">{mockId}</span>
+              <span className="font-mono text-xs text-ink-soft bg-bg-muted px-1.5 py-0.5 rounded border border-border">{mockId}</span>
             </div>
           </div>
           <button 
@@ -151,7 +151,7 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
                 </button>
               </div>
             </div>
-            <div className="terminal-block border border-border rounded-xl p-3.5 font-mono text-[11px] text-ink overflow-auto max-h-[260px] shadow-inner select-text selection:bg-accent/30">
+            <div className="terminal-block border border-border rounded-xl p-3.5 font-mono text-xs text-ink overflow-auto max-h-[260px] shadow-inner select-text selection:bg-accent/30">
               {showLoading ? (
                 <div className="flex py-10 items-center justify-center text-ink-soft">
                   <RotateCw className="h-4 w-4 animate-spin text-accent" />
@@ -182,7 +182,7 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
                 <Maximize2 className="h-3.5 w-3.5" />
               </button>
             </div>
-            <div className="terminal-block border border-border rounded-xl p-3.5 font-mono text-[11px] overflow-auto max-h-[260px] shadow-inner select-text selection:bg-accent/30 text-ink min-h-[80px]">
+            <div className="terminal-block border border-border rounded-xl p-3.5 font-mono text-xs overflow-auto max-h-[260px] shadow-inner select-text selection:bg-accent/30 text-ink min-h-[80px]">
               {showLoading ? (
                 <div className="flex h-full items-center justify-center text-ink-soft">
                   <RotateCw className="h-4 w-4 animate-spin text-accent" />
@@ -195,7 +195,7 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
                 <div className="text-ink-soft italic p-2">No details available</div>
               ) : (
                 <pre 
-                  className="font-mono text-[11px] select-text selection:bg-accent/30 text-ink"
+                  className="font-mono text-xs select-text selection:bg-accent/30 text-ink"
                   dangerouslySetInnerHTML={{ __html: syntaxHighlight(details) }}
                 />
               )}

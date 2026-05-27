@@ -236,7 +236,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
               {agent.label || agent.hostname}
             </h1>
             <span
-              className={`chip text-[10px] font-semibold px-2 py-0.5 rounded-full border border-current/10 ${
+              className={`chip text-xs font-semibold px-2 py-0.5 rounded-full border border-current/10 ${
                 agent.online ? 'chip-success' : 'chip-muted'
               }`}
             >
@@ -370,7 +370,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
                   onClick={() => setLayoutDropdownOpen(false)}
                 />
                 <div className="absolute right-0 mt-2 w-48 rounded-xl border border-border bg-bg-card p-1.5 shadow-2xl z-20">
-                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-soft">
+                  <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-ink-soft">
                     Chart Width
                   </div>
                   <button
@@ -401,7 +401,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
                   </button>
 
                   <div className="border-t border-border my-1" />
-                  <div className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-ink-soft">
+                  <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-ink-soft">
                     Display Mode
                   </div>
                   <button

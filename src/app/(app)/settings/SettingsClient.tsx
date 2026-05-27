@@ -480,9 +480,9 @@ export function SettingsClient({
                   <div className="flex items-center gap-2 text-xs">
                     <span className="text-ink-soft font-semibold">Bot Configuration status:</span>
                     {configured ? (
-                      <span className="chip-success text-[10px] font-bold">Enabled</span>
+                      <span className="chip-success text-xs font-bold">Enabled</span>
                     ) : (
-                      <span className="chip-muted text-[10px] font-bold">Not configured</span>
+                      <span className="chip-muted text-xs font-bold">Not configured</span>
                     )}
                   </div>
 
@@ -538,7 +538,7 @@ export function SettingsClient({
                         value={cooldown}
                         onChange={(e) => setCooldown(e.target.value)}
                       />
-                      <p className="mt-1 text-[10px] text-ink-soft">
+                      <p className="mt-1 text-xs text-ink-soft">
                         Minimum 60 seconds (prevents alert spamming during prolonged usage spikes).
                       </p>
                     </div>
@@ -589,7 +589,7 @@ export function SettingsClient({
                           disabled={!cpuEnabled}
                           className="w-full h-1.5 bg-bg-muted rounded-lg appearance-none cursor-pointer accent-accent disabled:opacity-30"
                         />
-                        <p className="text-[10px] text-ink-soft">Triggers when system CPU averages over this value.</p>
+                        <p className="text-xs text-ink-soft">Triggers when system CPU averages over this value.</p>
                       </div>
                     </div>
 
@@ -612,7 +612,7 @@ export function SettingsClient({
                           disabled={!ramEnabled}
                           className="w-full h-1.5 bg-bg-muted rounded-lg appearance-none cursor-pointer accent-accent disabled:opacity-30"
                         />
-                        <p className="text-[10px] text-ink-soft">Triggers when total RAM usage exceeds this threshold.</p>
+                        <p className="text-xs text-ink-soft">Triggers when total RAM usage exceeds this threshold.</p>
                       </div>
                     </div>
 
@@ -635,7 +635,7 @@ export function SettingsClient({
                           disabled={!diskEnabled}
                           className="w-full h-1.5 bg-bg-muted rounded-lg appearance-none cursor-pointer accent-accent disabled:opacity-30"
                         />
-                        <p className="text-[10px] text-ink-soft">Triggers when root disk (/) space exceeds limit.</p>
+                        <p className="text-xs text-ink-soft">Triggers when root disk (/) space exceeds limit.</p>
                       </div>
                     </div>
 
@@ -658,7 +658,7 @@ export function SettingsClient({
                           disabled={!tempEnabled}
                           className="w-full h-1.5 bg-bg-muted rounded-lg appearance-none cursor-pointer accent-accent disabled:opacity-30"
                         />
-                        <p className="text-[10px] text-ink-soft">Triggers when any hardware sensor exceeds temperature.</p>
+                        <p className="text-xs text-ink-soft">Triggers when any hardware sensor exceeds temperature.</p>
                       </div>
                     </div>
 
@@ -669,7 +669,7 @@ export function SettingsClient({
                       </div>
                       <div className="flex-grow space-y-0.5">
                         <h4 className="text-xs font-bold text-ink">Heartbeat Timeout (Offline) Alert</h4>
-                        <p className="text-[10px] text-ink-soft">
+                        <p className="text-xs text-ink-soft">
                           Triggers immediately when the system goes offline or shuts down gracefully.
                         </p>
                       </div>
@@ -715,7 +715,7 @@ export function SettingsClient({
                                   <span className="text-xs font-bold text-ink">
                                     {agent.label || agent.hostname}
                                   </span>
-                                  <span className="ml-2 font-mono text-[9px] text-ink-soft bg-bg-muted px-1.5 py-0.5 rounded border border-border">
+                                  <span className="ml-2 font-mono text-xs text-ink-soft bg-bg-muted px-1.5 py-0.5 rounded border border-border">
                                     {agent.agentId}
                                   </span>
                                 </div>
@@ -724,7 +724,7 @@ export function SettingsClient({
                               <div className="flex items-center gap-3">
                                 <span
                                   className={cn(
-                                    "inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-semibold border",
+                                    "inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border",
                                     hasCustom
                                       ? "chip-success border-success/20"
                                       : "chip-muted border-border"
@@ -750,7 +750,7 @@ export function SettingsClient({
                                   />
                                   <div>
                                     <span className="text-xs font-bold text-ink block">Customize Rules</span>
-                                    <span className="text-[10px] text-ink-muted">
+                                    <span className="text-xs text-ink-muted">
                                       Enable to customize alert parameters for this specific server.
                                     </span>
                                   </div>
@@ -853,7 +853,7 @@ export function SettingsClient({
                                       </div>
                                       <div className="flex-grow">
                                         <span className="text-xs font-semibold text-ink block">Offline Timeout Alert</span>
-                                        <p className="text-[10px] text-ink-soft">Receive warning when this VPS heartbeats cease.</p>
+                                        <p className="text-xs text-ink-soft">Receive warning when this VPS heartbeats cease.</p>
                                       </div>
                                     </div>
                                   </div>
@@ -863,14 +863,14 @@ export function SettingsClient({
                                   <button
                                     onClick={() => saveAgentAlertOverrides(agent.agentId)}
                                     disabled={savingAgentSettings}
-                                    className="btn-primary text-[11px] py-1.5 px-3"
+                                    className="btn-primary text-xs py-1.5 px-3"
                                   >
                                     {savingAgentSettings && <Loader2 className="h-3 w-3 animate-spin" />}
                                     Save Server Settings
                                   </button>
                                   <button
                                     onClick={() => setExpandedAgentId(null)}
-                                    className="btn-secondary text-[11px] py-1.5 px-3"
+                                    className="btn-secondary text-xs py-1.5 px-3"
                                   >
                                     Cancel
                                   </button>
@@ -893,7 +893,7 @@ export function SettingsClient({
         <h2 className="text-base font-semibold text-ink">Dashboard</h2>
         <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-3 text-sm sm:grid-cols-2">
           <div>
-            <dt className="text-[11px] uppercase tracking-wider text-ink-soft">App URL</dt>
+            <dt className="text-xs uppercase tracking-wider text-ink-soft">App URL</dt>
             <dd className="mt-1 flex items-center gap-2">
               <code className="truncate font-mono text-ink">{appUrl}</code>
               <button
@@ -904,7 +904,7 @@ export function SettingsClient({
                 {copied ? <Check className="h-4 w-4 text-success" /> : <Copy className="h-4 w-4" />}
               </button>
             </dd>
-            <p className="mt-1 text-[11px] text-ink-soft">
+            <p className="mt-1 text-xs text-ink-soft">
               Set via <code>NEXT_PUBLIC_APP_URL</code> in your environment.
             </p>
           </div>
@@ -921,7 +921,7 @@ export function SettingsClient({
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <dt className="text-[11px] uppercase tracking-wider text-ink-soft">{label}</dt>
+      <dt className="text-xs uppercase tracking-wider text-ink-soft">{label}</dt>
       <dd className="truncate text-ink">{value}</dd>
     </div>
   );

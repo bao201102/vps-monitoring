@@ -242,7 +242,7 @@ export function ContainerTable({
                     </td>
                     <td className="py-3.5 px-4">
                       <span
-                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${container.health === 'Healthy'
+                        className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold border ${container.health === 'Healthy'
                             ? 'chip-success border-success/20'
                             : container.health === 'Unhealthy'
                               ? 'chip-danger border-danger/20'

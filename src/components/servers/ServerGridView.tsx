@@ -127,7 +127,7 @@ export function ServerGridView({ servers, visibleFields, onRefresh }: ServerGrid
                     <h3 className="font-bold text-ink truncate text-sm">
                       {s.label || s.hostname}
                     </h3>
-                    <p className="text-[10px] text-ink-soft truncate mt-0.5">
+                    <p className="text-xs text-ink-soft truncate mt-0.5">
                       {s.cpuCores} CPU · {formatBytes(s.totalMemoryBytes)} RAM
                     </p>
                   </div>
@@ -175,7 +175,7 @@ export function ServerGridView({ servers, visibleFields, onRefresh }: ServerGrid
             {/* Bottom details card button link */}
             <div className="pt-2 border-t border-border/40 flex items-center justify-end">
               <span
-                className="text-[11px] font-semibold text-ink-soft group-hover:text-accent flex items-center gap-1 transition-colors"
+                className="text-xs font-semibold text-ink-soft group-hover:text-accent flex items-center gap-1 transition-colors"
               >
                 View details
                 <ChevronRight className="h-3.5 w-3.5" />

@@ -126,7 +126,7 @@ export function ViewConfigPopover({
                 }`}
               >
                 <Icon className="h-4 w-4" />
-                <span className="text-[10px] font-semibold tracking-tight">{tab.label}</span>
+                <span className="text-xs font-semibold tracking-tight">{tab.label}</span>
               </button>
             );
           })}
@@ -207,7 +207,7 @@ export function ViewConfigPopover({
                   >
                     <span>{opt.label}</span>
                     {isCurrent && (
-                      <span className="text-[10px] text-accent font-bold">
+                      <span className="text-xs text-accent font-bold">
                         {sortOrder === 'asc' ? '↑' : '↓'}
                       </span>
                     )}

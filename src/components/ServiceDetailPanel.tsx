@@ -186,15 +186,15 @@ export function ServiceDetailPanel({
               <h3 className="text-sm font-bold text-ink-muted px-1">
                 {section.title}
               </h3>
-              <div className="bg-[#121214] border border-border rounded-xl overflow-hidden divide-y divide-border/60">
+              <div className="bg-bg-card border border-border rounded-xl overflow-hidden divide-y divide-border/60">
                 {section.rows.map((row, rowIdx) => (
-                  <div key={rowIdx} className="flex px-4 py-3 text-xs items-start leading-relaxed">
+                  <div key={rowIdx} className="flex px-4 py-3 text-sm items-start leading-relaxed">
                     <div className="w-40 text-ink-soft shrink-0 font-medium">
                       {row.label}
                     </div>
                     <div className={cn(
                       "text-ink flex-grow break-all",
-                      row.isMono && "font-mono text-ink-muted"
+                      row.isMono && "font-mono text-ink-muted text-xs"
                     )}>
                       {row.isCustom ? row.value : (row.value as string)}
                     </div>

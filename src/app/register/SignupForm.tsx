@@ -45,7 +45,7 @@ export function SignupForm() {
           autoComplete="username"
           placeholder="username"
         />
-        <p className="mt-1 text-[11px] text-ink-soft">
+        <p className="mt-1 text-xs text-ink-soft">
           Min 3 characters, alphanumeric plus _ . -
         </p>
       </div>
@@ -70,7 +70,7 @@ export function SignupForm() {
             {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
           </button>
         </div>
-        <p className="mt-1 text-[11px] text-ink-soft">Min 8 characters</p>
+        <p className="mt-1 text-xs text-ink-soft">Min 8 characters</p>
       </div>
       <button type="submit" className="btn-primary w-full" disabled={loading}>
         {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}

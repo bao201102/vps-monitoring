@@ -153,7 +153,7 @@ export function Header({ onSearchClick, username, role }: HeaderProps) {
               <div className="absolute right-0 mt-2.5 w-48 rounded-xl border border-border bg-bg-soft p-1.5 shadow-2xl z-30">
                 <div className="px-3 py-2 border-b border-border mb-1.5">
                   <div className="font-semibold text-ink text-xs truncate">{username}</div>
-                  <div className="text-[10px] text-ink-soft uppercase tracking-wider">
+                  <div className="text-xs text-ink-soft uppercase tracking-wider">
                     {role === 'admin' ? 'Administrator' : 'User'}
                   </div>
                 </div>
