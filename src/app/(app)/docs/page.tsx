@@ -52,10 +52,10 @@ export default async function DocsPage() {
             Each user installation is isolated under <code className="text-ink-muted">/opt/vps-monitor-agent-{userId}</code>. You can manage the service using these command-line tools:
           </p>
           <div className="mt-3 overflow-x-auto rounded-lg border border-border/80 bg-bg-soft/40 p-3 font-mono text-xs text-ink-muted space-y-1">
-            <div><span className="text-[#38bdf8]">sudo systemctl status vps-monitor-agent-{userId}</span> <span className="text-ink-soft"># Check agent service status</span></div>
-            <div><span className="text-[#38bdf8]">sudo systemctl restart vps-monitor-agent-{userId}</span> <span className="text-ink-soft"># Restart the agent</span></div>
-            <div><span className="text-[#38bdf8]">sudo journalctl -u vps-monitor-agent-{userId} -f</span> <span className="text-ink-soft"># Tail live agent logs</span></div>
-            <div><span className="text-[#38bdf8]">sudo /opt/vps-monitor-agent-{userId}/uninstall.sh</span> <span className="text-ink-soft"># Completely remove the agent and service</span></div>
+            <div><span className="text-accent">sudo systemctl status vps-monitor-agent-{userId}</span> <span className="text-ink-soft"># Check agent service status</span></div>
+            <div><span className="text-accent">sudo systemctl restart vps-monitor-agent-{userId}</span> <span className="text-ink-soft"># Restart the agent</span></div>
+            <div><span className="text-accent">sudo journalctl -u vps-monitor-agent-{userId} -f</span> <span className="text-ink-soft"># Tail live agent logs</span></div>
+            <div><span className="text-accent">sudo /opt/vps-monitor-agent-{userId}/uninstall.sh</span> <span className="text-ink-soft"># Completely remove the agent and service</span></div>
           </div>
         </div>
       </Section>
@@ -152,7 +152,7 @@ export default async function DocsPage() {
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#64748b] dark:text-zinc-500">Web UI & Management</h3>
+            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-soft">Web UI & Management</h3>
             <Endpoint
               method="GET"
               path="/api/agents"

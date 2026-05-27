@@ -161,7 +161,7 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
                   {error?.message || data?.error || 'Failed to load logs'}
                 </div>
               ) : logs.length === 0 ? (
-                <div className="text-zinc-500 italic p-2">No logs available</div>
+                <div className="text-ink-soft italic p-2">No logs available</div>
               ) : (
                 logs.map((line, idx) => (
                   <div key={idx} className="min-h-[1.1rem] whitespace-pre-wrap">{line}</div>
@@ -227,7 +227,7 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
                 {error?.message || data?.error || 'Failed to load logs'}
               </div>
             ) : logs.length === 0 ? (
-              <div className="text-zinc-500 italic p-2">No logs available</div>
+              <div className="text-ink-soft italic p-2">No logs available</div>
             ) : (
               logs.map((line, idx) => (
                 <div key={idx} className="min-h-[1.2rem] whitespace-pre-wrap">{line}</div>
@@ -259,7 +259,7 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
                 {error?.message || data?.error || 'Failed to load details'}
               </div>
             ) : !details ? (
-              <div className="text-zinc-500 italic p-2">No details available</div>
+              <div className="text-ink-soft italic p-2">No details available</div>
             ) : (
               <pre 
                 className="font-mono text-xs select-text selection:bg-accent/30 text-ink"

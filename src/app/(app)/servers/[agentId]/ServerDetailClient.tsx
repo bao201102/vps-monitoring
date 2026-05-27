@@ -17,6 +17,7 @@ import {
   Maximize2,
   Check,
   Layers,
+  Monitor,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -26,6 +27,7 @@ import { CoreTab } from '@/components/CoreTab';
 import { DiskTab } from '@/components/DiskTab';
 import { ContainersTab } from '@/components/ContainersTab';
 import { ServicesTab } from '@/components/ServicesTab';
+import { GpuTab } from '@/components/GpuTab';
 
 interface AgentDetail {
   agentId: string;
@@ -80,6 +82,8 @@ interface MetricPoint {
   cpuPercent: number;
   memUsedBytes: number;
   memTotalBytes: number;
+  swapUsedBytes: number;
+  swapTotalBytes: number;
   diskUsedBytes: number;
   diskTotalBytes: number;
   diskReadBps: number;
@@ -92,6 +96,7 @@ interface MetricPoint {
   dockerNetTxBps: number;
   dockerContainerCount: number;
   temperatureC: number;
+  temperatures: Record<string, number>; // multi-sensor map
   gpuUtilPercent: number;
   gpuMemUsedBytes: number;
   gpuMemTotalBytes: number;
@@ -114,13 +119,13 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [range, setRange] = useState('1h');
-  const [activeTab, setActiveTab] = useState<'core' | 'disk' | 'containers' | 'service'>('core');
+  const [activeTab, setActiveTab] = useState<'core' | 'disk' | 'gpu' | 'containers' | 'service'>('core');
 
   // Sync tab from search params
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'core' || tabParam === 'disk' || tabParam === 'containers' || tabParam === 'service') {
-      setActiveTab(tabParam);
+    if (tabParam === 'core' || tabParam === 'disk' || tabParam === 'gpu' || tabParam === 'containers' || tabParam === 'service') {
+      setActiveTab(tabParam as any);
     }
   }, [searchParams]);
   const [isGridLayout, setIsGridLayout] = useState(true);
@@ -200,10 +205,12 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
   }
 
   const latest = agent.latest;
+  const hasGpu = (latest?.gpuMemTotalBytes ?? 0) > 0;
 
   const tabs = [
     { id: 'core' as const, label: 'Core', icon: Cpu },
     { id: 'disk' as const, label: 'Disk', icon: HardDrive },
+    ...(hasGpu ? [{ id: 'gpu' as const, label: 'GPU', icon: Monitor }] : []),
     { id: 'containers' as const, label: 'Containers', icon: Container },
     { id: 'service' as const, label: 'Service', icon: Layers },
   ];
@@ -457,6 +464,9 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
                 agentHostname={agent.hostname}
               />
             )}
+            {activeTab === 'gpu' && hasGpu && (
+              <GpuTab metrics={metrics} isGridLayout={isGridLayout} />
+            )}
             {activeTab === 'service' && (
               <ServicesTab
                 agentId={agent.agentId}
@@ -495,7 +505,21 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
               />
             </div>
 
-            <div className="border-t border-[#1f1f23] my-6" />
+            <div className="border-t border-border my-6" />
+
+            {/* GPU Section - only when GPU data present */}
+            {hasGpu && (
+              <>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 px-1 text-sm font-bold text-ink tracking-tight">
+                    <Monitor className="h-4 w-4 text-accent" />
+                    <span>GPU</span>
+                  </div>
+                  <GpuTab metrics={metrics} isGridLayout={isGridLayout} />
+                </div>
+                <div className="border-t border-border my-6" />
+              </>
+            )}
 
             {/* Containers Section */}
             <div className="space-y-3">
@@ -512,7 +536,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
               />
             </div>
 
-            <div className="border-t border-[#1f1f23] my-6" />
+            <div className="border-t border-border my-6" />
 
             {/* Services Section */}
             <div className="space-y-3">

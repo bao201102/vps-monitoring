@@ -78,7 +78,7 @@ export function Header({ onSearchClick, username, role }: HeaderProps) {
             <span className="text-sm font-medium grow text-ink-soft truncate">
               Search...
             </span>
-            <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-bg px-1.5 py-0.5 text-xs font-mono font-medium text-[#64748b] select-none">
+            <kbd className="hidden sm:inline-flex items-center gap-0.5 rounded border border-border bg-bg px-1.5 py-0.5 text-xs font-mono font-medium text-ink-soft select-none">
               {isMac ? '⌘' : 'Ctrl'} K
             </kbd>
           </button>
@@ -159,7 +159,7 @@ export function Header({ onSearchClick, username, role }: HeaderProps) {
                 </div>
                 <button
                   onClick={logout}
-                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-danger hover:bg-red-950/20 transition-colors"
+                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-danger hover:bg-danger/10 transition-colors"
                 >
                   <LogOut className="h-3.5 w-3.5" />
                   Sign out

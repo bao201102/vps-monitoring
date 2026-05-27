@@ -70,7 +70,31 @@ export async function GET(_req: Request, { params }: RouteContext) {
     })) as any;
   }
 
-  return NextResponse.json({ services });
+  // Map to response shape (include extended fields)
+  const result = services.map((s: any) => ({
+    name: s.name,
+    description: s.description,
+    state: s.state,
+    subState: s.subState,
+    cpu10m: s.cpu10m,
+    cpuPeak: s.cpuPeak,
+    memory: s.memory,
+    memoryPeak: s.memoryPeak,
+    updated: s.updated,
+    // Extended metadata
+    fragmentPath: s.fragmentPath ?? null,
+    mainPid: s.mainPid ?? null,
+    nRestarts: s.nRestarts ?? null,
+    tasksCurrent: s.tasksCurrent ?? null,
+    tasksMax: s.tasksMax ?? null,
+    requires: s.requires ?? [],
+    documentation: s.documentation ?? [],
+    unitFileState: s.unitFileState ?? null,
+    loadState: s.loadState ?? null,
+    activeEnterTimestamp: s.activeEnterTimestamp ?? null,
+  }));
+
+  return NextResponse.json({ services: result });
 }
 
 export async function POST(req: Request, { params }: RouteContext) {

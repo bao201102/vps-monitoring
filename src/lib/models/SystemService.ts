@@ -11,6 +11,17 @@ export interface ISystemService {
   memory: number | null; // Memory in bytes
   memoryPeak: number | null; // Peak memory in bytes
   updated: string; // Formatting string e.g. "8:24:20 PM"
+  // Extended metadata from systemd
+  fragmentPath?: string;      // Unit file path e.g. /lib/systemd/system/nginx.service
+  mainPid?: number;           // Main process PID
+  nRestarts?: number;         // Number of restarts
+  tasksCurrent?: number;      // Current task/thread count
+  tasksMax?: number;          // Max task count
+  requires?: string[];        // Required units
+  documentation?: string[];   // Documentation URLs
+  unitFileState?: string;     // enabled, disabled, static, etc.
+  loadState?: string;         // loaded, not-found, masked, etc.
+  activeEnterTimestamp?: string; // ISO string when service last became active
 }
 
 export interface ISystemServiceDocument extends ISystemService, Document {}
@@ -27,6 +38,17 @@ const SystemServiceSchema = new Schema<ISystemService>(
     memory: { type: Number, default: null },
     memoryPeak: { type: Number, default: null },
     updated: { type: String, default: '' },
+    // Extended metadata
+    fragmentPath: { type: String },
+    mainPid: { type: Number },
+    nRestarts: { type: Number },
+    tasksCurrent: { type: Number },
+    tasksMax: { type: Number },
+    requires: { type: [String], default: undefined },
+    documentation: { type: [String], default: undefined },
+    unitFileState: { type: String },
+    loadState: { type: String },
+    activeEnterTimestamp: { type: String },
   },
   { timestamps: true }
 );

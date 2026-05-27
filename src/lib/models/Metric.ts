@@ -25,6 +25,7 @@ export interface IMetric {
   dockerNetTxBps: number;
   dockerContainerCount: number;
   temperatureC: number;
+  temperatures?: Map<string, number>;
   gpuUtilPercent: number;
   gpuMemUsedBytes: number;
   gpuMemTotalBytes: number;
@@ -59,6 +60,7 @@ const MetricSchema = new Schema<IMetric>(
     dockerNetTxBps: { type: Number, default: 0 },
     dockerContainerCount: { type: Number, default: 0 },
     temperatureC: { type: Number, default: 0 },
+    temperatures: { type: Map, of: Number, default: undefined },
     gpuUtilPercent: { type: Number, default: 0 },
     gpuMemUsedBytes: { type: Number, default: 0 },
     gpuMemTotalBytes: { type: Number, default: 0 },

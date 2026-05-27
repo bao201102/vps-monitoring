@@ -7,6 +7,7 @@ import { Agent } from '@/lib/models/Agent';
 import { Metric } from '@/lib/models/Metric';
 import { AgentCommand } from '@/lib/models/AgentCommand';
 import { SystemService } from '@/lib/models/SystemService';
+import { ServiceMetric } from '@/lib/models/ServiceMetric';
 import { DockerContainer } from '@/lib/models/DockerContainer';
 import { sendTelegramDisconnectIfNeeded, sendTelegramOverloadIfNeeded } from '@/lib/telegram-alerts';
 
@@ -39,6 +40,9 @@ const schema = z.object({
   dockerNetTxBps: z.number().min(0).default(0),
   dockerContainerCount: z.number().int().min(0).default(0),
   temperatureC: z.number().min(0).default(0),
+  // Multi-sensor temperatures: { "CPU Package": 72.5, "GPU Temp": 65.0, ... }
+  // Optional: new agents send this; old agents only send temperatureC
+  temperatures: z.record(z.string(), z.number()).optional(),
   gpuUtilPercent: z.number().min(0).max(100).default(0),
   gpuMemUsedBytes: z.number().min(0).default(0),
   gpuMemTotalBytes: z.number().min(0).default(0),
@@ -51,6 +55,18 @@ const schema = z.object({
     state: z.string().default('Inactive'),
     subState: z.string().default('Dead'),
     memory: z.number().default(0),
+    cpuPercent: z.number().default(0), // actual per-service CPU reported by agent
+    // Extended metadata
+    fragmentPath: z.string().optional(),
+    mainPid: z.number().optional(),
+    nRestarts: z.number().optional(),
+    tasksCurrent: z.number().optional(),
+    tasksMax: z.number().optional(),
+    requires: z.array(z.string()).optional(),
+    documentation: z.array(z.string()).optional(),
+    unitFileState: z.string().optional(),
+    loadState: z.string().optional(),
+    activeEnterTimestamp: z.string().optional(),
   })).optional(),
   containers: z.array(z.object({
     name: z.string(),
@@ -140,20 +156,48 @@ export async function POST(req: Request) {
       const updatedTimeStr = nowTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: 'numeric', second: 'numeric', hour12: true });
 
       const isRunning = s.subState === 'Running';
-      const currentCpu = isRunning ? Number((Math.random() * 0.05).toFixed(2)) : null;
+      // Use actual cpuPercent from agent; fallback 0 for non-running services
+      const currentCpu = isRunning ? (s.cpuPercent ?? 0) : null;
+      const currentMem = s.memory > 0 ? s.memory : null;
+
+      // Snapshot ServiceMetric for history (only when running and has real data)
+      if (isRunning && (currentCpu !== null || currentMem !== null)) {
+        await ServiceMetric.create({
+          agentId: agent.agentId,
+          serviceName: s.name,
+          ts: now,
+          cpuPercent: currentCpu,
+          memBytes: currentMem,
+        });
+      }
+
+      const extendedFields = {
+        fragmentPath: s.fragmentPath,
+        mainPid: s.mainPid,
+        nRestarts: s.nRestarts,
+        tasksCurrent: s.tasksCurrent,
+        tasksMax: s.tasksMax,
+        requires: s.requires,
+        documentation: s.documentation,
+        unitFileState: s.unitFileState,
+        loadState: s.loadState,
+        activeEnterTimestamp: s.activeEnterTimestamp,
+      };
 
       if (existing) {
         existing.state = s.state;
         existing.subState = s.subState;
-        existing.memory = s.memory > 0 ? s.memory : null;
-        if (isRunning && existing.memory && (!existing.memoryPeak || existing.memory > existing.memoryPeak)) {
-          existing.memoryPeak = existing.memory;
+        existing.memory = currentMem;
+        if (isRunning && currentMem && (!existing.memoryPeak || currentMem > existing.memoryPeak)) {
+          existing.memoryPeak = currentMem;
         }
-        existing.cpu10m = isRunning ? currentCpu : null;
+        existing.cpu10m = currentCpu;
         if (isRunning && currentCpu !== null && (!existing.cpuPeak || currentCpu > existing.cpuPeak)) {
           existing.cpuPeak = currentCpu;
         }
         existing.updated = updatedTimeStr;
+        // Update extended metadata if provided
+        Object.assign(existing, extendedFields);
         await existing.save();
       } else {
         await SystemService.create({
@@ -162,11 +206,12 @@ export async function POST(req: Request) {
           description: s.description,
           state: s.state,
           subState: s.subState,
-          memory: s.memory > 0 ? s.memory : null,
-          memoryPeak: s.memory > 0 ? s.memory : null,
-          cpu10m: isRunning ? currentCpu : null,
-          cpuPeak: isRunning ? currentCpu : null,
+          memory: currentMem,
+          memoryPeak: currentMem,
+          cpu10m: currentCpu,
+          cpuPeak: currentCpu,
           updated: updatedTimeStr,
+          ...extendedFields,
         });
       }
     }
@@ -241,6 +286,11 @@ export async function POST(req: Request) {
     dockerNetTxBps: parsed.data.dockerNetTxBps,
     dockerContainerCount: parsed.data.dockerContainerCount,
     temperatureC: parsed.data.temperatureC,
+    temperatures: parsed.data.temperatures
+      ? parsed.data.temperatures
+      : parsed.data.temperatureC > 0
+        ? { 'Temperature': parsed.data.temperatureC }
+        : undefined,
     gpuUtilPercent: parsed.data.gpuUtilPercent,
     gpuMemUsedBytes: parsed.data.gpuMemUsedBytes,
     gpuMemTotalBytes: parsed.data.gpuMemTotalBytes,

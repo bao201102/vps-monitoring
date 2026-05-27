@@ -64,7 +64,7 @@ export function ServerToolbar({
           onClick={() => setPopoverOpen(!popoverOpen)}
           className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
             popoverOpen
-              ? 'border-[#3b82f6] bg-bg-soft text-ink'
+              ? 'border-accent bg-bg-soft text-ink'
               : 'border-border bg-bg-card text-ink-muted hover:text-ink hover:bg-bg-soft'
           }`}
         >

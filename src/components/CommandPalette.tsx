@@ -266,7 +266,7 @@ export function CommandPalette({ isOpen, onClose, role }: CommandPaletteProps) {
                       >
                         <div className="flex items-center gap-3">
                           <div className={`p-1.5 rounded-lg border ${isSelected
-                              ? 'bg-bg-soft border-border text-[#3b82f6]'
+                              ? 'bg-bg-soft border-border text-accent'
                               : 'bg-bg-card border-border text-ink-soft'
                             }`}>
                             <Icon className="h-4 w-4" />

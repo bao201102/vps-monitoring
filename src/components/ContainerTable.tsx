@@ -217,7 +217,7 @@ export function ContainerTable({
                         {container.system || '—'}
                       </td>
                     )}
-                    <td className="py-3.5 px-4 text-right font-semibold text-[#3b82f6]">
+                    <td className="py-3.5 px-4 text-right font-semibold text-accent">
                       {container.cpu.toFixed(2)}%
                     </td>
                     <td className="py-3.5 px-4 text-right font-medium text-ink">

@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import useSWR from 'swr';
 import { formatBytes, cn } from '@/lib/utils';
+import { ServiceDetailPanel } from './ServiceDetailPanel';
 
 export interface ServiceData {
   name: string;
@@ -23,6 +24,17 @@ export interface ServiceData {
   memory: number | null; // bytes, null for N/A
   memoryPeak: number | null; // bytes, null for N/A
   updated: string;
+  // Extended metadata
+  fragmentPath?: string | null;
+  mainPid?: number | null;
+  nRestarts?: number | null;
+  tasksCurrent?: number | null;
+  tasksMax?: number | null;
+  requires?: string[];
+  documentation?: string[];
+  unitFileState?: string | null;
+  loadState?: string | null;
+  activeEnterTimestamp?: string | null;
 }
 
 interface ServicesTabProps {
@@ -34,7 +46,7 @@ interface ServicesTabProps {
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabProps) {
-  const { data, isLoading } = useSWR<{ services: ServiceData[] }>(
+  const { data, isLoading, mutate } = useSWR<{ services: ServiceData[] }>(
     `/api/agents/${agentId}/services`,
     fetcher,
     { refreshInterval: 5000 }
@@ -44,6 +56,7 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
   const [searchQuery, setSearchQuery] = useState('');
   const [sortField, setSortField] = useState<keyof ServiceData>('name');
   const [sortAsc, setSortAsc] = useState(true);
+  const [selectedServiceName, setSelectedServiceName] = useState<string | null>(null);
 
   const handleSort = (field: keyof ServiceData) => {
     if (sortField === field) {
@@ -79,6 +92,10 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
         return 0;
       });
   }, [services, searchQuery, sortField, sortAsc]);
+
+  const selectedService = useMemo(() => {
+    return services.find((s) => s.name === selectedServiceName) || null;
+  }, [services, selectedServiceName]);
 
   const renderSortIndicator = (field: keyof ServiceData) => {
     if (sortField !== field) {
@@ -195,7 +212,8 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
                 return (
                   <tr
                     key={service.name + idx}
-                    className="hover:bg-bg-soft/50 transition-colors"
+                    onClick={() => setSelectedServiceName(service.name)}
+                    className="hover:bg-bg-soft/70 transition-colors cursor-pointer"
                   >
                     <td className="py-3.5 px-4 font-semibold text-ink font-mono">
                       {service.name}
@@ -284,6 +302,15 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
           </tbody>
         </table>
       </div>
+
+      {selectedService && (
+        <ServiceDetailPanel
+          agentId={agentId}
+          service={selectedService}
+          onClose={() => setSelectedServiceName(null)}
+          mutateServices={mutate}
+        />
+      )}
     </div>
   );
 }
