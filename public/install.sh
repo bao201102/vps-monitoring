@@ -613,9 +613,9 @@ while true; do
 
   # Send heartbeat and capture status code and response for debugging
   _tmp_resp=$(mktemp)
-  HTTP_CODE=$(curl -s -w "%{http_code}" -o "$_tmp_resp" --max-time 10 -X POST "$SERVER_URL/api/agents/heartbeat" \
+  HTTP_CODE=$(curl -sS -w "%{http_code}" -o "$_tmp_resp" --max-time 10 -X POST "$SERVER_URL/api/agents/heartbeat" \
     -H 'Content-Type: application/json' \
-    -d "$PAYLOAD" 2>/dev/null || echo "000")
+    -d "$PAYLOAD" || echo "000")
   RESP=$(cat "$_tmp_resp")
   rm -f "$_tmp_resp"
 
