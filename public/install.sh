@@ -145,6 +145,9 @@ cat > "$AGENT_SCRIPT" <<'AGENT_EOF'
 # vps-monitor-agent: collects metrics and POSTs to the dashboard.
 set -u
 
+export LC_ALL=C
+export LANG=C
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${1:-$SCRIPT_DIR/agent.conf}"
 # shellcheck disable=SC1090
@@ -432,13 +435,13 @@ read_services() {
         description: (.Description // ""),
         state: (if .ActiveState == "active" then "Active" elif (.ActiveState == "failed" or .SubState == "failed") then "Failed" else "Inactive" end),
         subState: (if .SubState == "running" then "Running" elif .SubState == "exited" then "Exited" elif .SubState == "failed" then "Failed" else "Dead" end),
-        memory: (if .MemoryCurrent == "[not set]" or .MemoryCurrent == "N/A" or .MemoryCurrent == "" then 0 else (.MemoryCurrent | tonumber) end),
+        memory: (.MemoryCurrent | tonumber? // 0),
         cpuPercent: 0,
         fragmentPath: (if .FragmentPath == "" or .FragmentPath == "/dev/null" then null else .FragmentPath end),
-        mainPid: (if .MainPID == "" or .MainPID == "0" then null else (.MainPID | tonumber) end),
-        nRestarts: (if .NRestarts == "" then 0 else (.NRestarts | tonumber) end),
-        tasksCurrent: (if .TasksCurrent == "" or .TasksCurrent == "[not set]" then null else (.TasksCurrent | tonumber) end),
-        tasksMax: (if .TasksMax == "" or .TasksMax == "[not set]" or .TasksMax == "infinity" or .TasksMax == "18446744073709551615" then null else (.TasksMax | tonumber) end),
+        mainPid: (if .MainPID == "" or .MainPID == "0" then null else (.MainPID | tonumber? // null) end),
+        nRestarts: (.NRestarts | tonumber? // 0),
+        tasksCurrent: (.TasksCurrent | tonumber? // null),
+        tasksMax: (if .TasksMax == "" or .TasksMax == "[not set]" or .TasksMax == "infinity" or .TasksMax == "18446744073709551615" then null else (.TasksMax | tonumber? // null) end),
         requires: (if .Requires == "" or .Requires == null then [] else (.Requires | split(" ")) end),
         wants: (if .Wants == "" or .Wants == null then [] else (.Wants | split(" ")) end),
         conflicts: (if .Conflicts == "" or .Conflicts == null then [] else (.Conflicts | split(" ")) end),
@@ -450,9 +453,9 @@ read_services() {
         activeEnterTimestamp: (if .ActiveEnterTimestamp == "" or .ActiveEnterTimestamp == "[not set]" then null else .ActiveEnterTimestamp end),
         statusText: (if .StatusText == "" then null else .StatusText end),
         result: (if .Result == "" then null else .Result end),
-        cpuUsageNSec: (if .CPUUsageNSec == "" or .CPUUsageNSec == "[not set]" then null else (.CPUUsageNSec | tonumber) end),
-        memoryPeak: (if .MemoryPeak == "" or .MemoryPeak == "[not set]" or .MemoryPeak == "18446744073709551615" then null else (.MemoryPeak | tonumber) end),
-        memoryLimit: (if .MemoryMax == "" or .MemoryMax == "[not set]" or .MemoryMax == "infinity" or .MemoryMax == "18446744073709551615" then null else (.MemoryMax | tonumber) end),
+        cpuUsageNSec: (.CPUUsageNSec | tonumber? // null),
+        memoryPeak: (if .MemoryPeak == "" or .MemoryPeak == "[not set]" or .MemoryPeak == "18446744073709551615" then null else (.MemoryPeak | tonumber? // null) end),
+        memoryLimit: (if .MemoryMax == "" or .MemoryMax == "[not set]" or .MemoryMax == "infinity" or .MemoryMax == "18446744073709551615" then null else (.MemoryMax | tonumber? // null) end),
         canStart: "Yes",
         canStop: "Yes",
         canReload: (if .ExecReload != "" and .ExecReload != null then "Yes" else "No" end)
@@ -608,38 +611,46 @@ while true; do
     '{agentId:$agentId, token:$token, cpuPercent:$cpuPercent, loadAvg1:$loadAvg1, loadAvg5:$loadAvg5, loadAvg15:$loadAvg15, memUsedBytes:$memUsedBytes, memTotalBytes:$memTotalBytes, swapUsedBytes:$swapUsedBytes, swapTotalBytes:$swapTotalBytes, diskUsedBytes:$diskUsedBytes, diskTotalBytes:$diskTotalBytes, diskReadBps:$diskReadBps, diskWriteBps:$diskWriteBps, netRxBytes:$netRxBytes, netTxBytes:$netTxBytes, netRxBps:$netRxBps, netTxBps:$netTxBps, dockerCpuPercent:$dockerCpuPercent, dockerMemUsedBytes:$dockerMemUsedBytes, dockerNetRxBps:$dockerNetRxBps, dockerNetTxBps:$dockerNetTxBps, dockerContainerCount:$dockerContainerCount, temperatureC:$temperatureC, gpuUtilPercent:$gpuUtilPercent, gpuMemUsedBytes:$gpuMemUsedBytes, gpuMemTotalBytes:$gpuMemTotalBytes, gpuPowerWatts:$gpuPowerWatts, uptimeSeconds:$uptimeSeconds, processCount:$processCount, services:$services[0], containers:$containers[0]}')
   rm -f "$_tmp_svc" "$_tmp_cont"
 
-  RESP=$(curl -fsS --max-time 10 -X POST "$SERVER_URL/api/agents/heartbeat" \
+  # Send heartbeat and capture status code and response for debugging
+  _tmp_resp=$(mktemp)
+  HTTP_CODE=$(curl -s -w "%{http_code}" -o "$_tmp_resp" --max-time 10 -X POST "$SERVER_URL/api/agents/heartbeat" \
     -H 'Content-Type: application/json' \
-    -d "$PAYLOAD" 2>/dev/null || true)
+    -d "$PAYLOAD" 2>/dev/null || echo "000")
+  RESP=$(cat "$_tmp_resp")
+  rm -f "$_tmp_resp"
 
-  if [ -n "$RESP" ]; then
-    CMD_ID=$(echo "$RESP" | jq -r '.command.id // empty')
-    CMD_ACTION=$(echo "$RESP" | jq -r '.command.action // empty')
-    CMD_SERVICE=$(echo "$RESP" | jq -r '.command.service // empty')
+  if [ "$HTTP_CODE" -ne 200 ]; then
+    echo "Heartbeat failed (HTTP $HTTP_CODE): $RESP" >&2
+  else
+    if [ -n "$RESP" ]; then
+      CMD_ID=$(echo "$RESP" | jq -r '.command.id // empty' 2>/dev/null || true)
+      CMD_ACTION=$(echo "$RESP" | jq -r '.command.action // empty' 2>/dev/null || true)
+      CMD_SERVICE=$(echo "$RESP" | jq -r '.command.service // empty' 2>/dev/null || true)
 
-    if [ -n "$CMD_ID" ] && [ -n "$CMD_ACTION" ] && [ -n "$CMD_SERVICE" ]; then
-      CMD_STATUS="done"
-      if [ "$CMD_ACTION" = "start" ]; then
-        systemctl start "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
-      elif [ "$CMD_ACTION" = "stop" ]; then
-        systemctl stop "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
-      elif [ "$CMD_ACTION" = "restart" ]; then
-        systemctl restart "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
-      else
-        CMD_STATUS="failed"
+      if [ -n "$CMD_ID" ] && [ -n "$CMD_ACTION" ] && [ -n "$CMD_SERVICE" ]; then
+        CMD_STATUS="done"
+        if [ "$CMD_ACTION" = "start" ]; then
+          systemctl start "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
+        elif [ "$CMD_ACTION" = "stop" ]; then
+          systemctl stop "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
+        elif [ "$CMD_ACTION" = "restart" ]; then
+          systemctl restart "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
+        else
+          CMD_STATUS="failed"
+        fi
+
+        # Send command execution status back to server
+        STATUS_PAYLOAD=$(jq -n \
+          --arg agentId "$AGENT_ID" \
+          --arg token "$AGENT_TOKEN" \
+          --arg commandId "$CMD_ID" \
+          --arg status "$CMD_STATUS" \
+          '{agentId:$agentId, token:$token, commandId:$commandId, status:$status}')
+
+        curl -fsS --max-time 10 -X POST "$SERVER_URL/api/agents/command-status" \
+          -H 'Content-Type: application/json' \
+          -d "$STATUS_PAYLOAD" >/dev/null 2>&1 || true
       fi
-
-      # Send command execution status back to server
-      STATUS_PAYLOAD=$(jq -n \
-        --arg agentId "$AGENT_ID" \
-        --arg token "$AGENT_TOKEN" \
-        --arg commandId "$CMD_ID" \
-        --arg status "$CMD_STATUS" \
-        '{agentId:$agentId, token:$token, commandId:$commandId, status:$status}')
-
-      curl -fsS --max-time 10 -X POST "$SERVER_URL/api/agents/command-status" \
-        -H 'Content-Type: application/json' \
-        -d "$STATUS_PAYLOAD" >/dev/null 2>&1 || true
     fi
   fi
 
