@@ -228,7 +228,7 @@ read_disk_io() {
 
 read_docker_containers() {
   if ! command -v docker >/dev/null 2>&1; then
-    echo "[]"
+    CONTAINERS_DATA="[]"
     return
   fi
 
@@ -327,7 +327,7 @@ read_docker_containers() {
                       '. += [{name:$name, image:$image, ports:$ports, status:$status, health:$health, cpuPercent:$cpu, memUsedBytes:$mem, netRxBps:$rx, netTxBps:$tx, logs:$logs, details:$details}]' <<< "$json_payload")
   done <<< "$ps_data"
 
-  echo "$json_payload"
+  CONTAINERS_DATA="$json_payload"
 }
 
 read_temperature_c() {
@@ -533,7 +533,7 @@ while true; do
   PREV_RX=$RX; PREV_TX=$TX; PREV_TS=$NOW
 
   # Docker (optional)
-  CONTAINERS_DATA="$(read_docker_containers)"
+  read_docker_containers
   DOCKER_COUNT=$(jq 'length' <<< "$CONTAINERS_DATA")
   if [ "$DOCKER_COUNT" -gt 0 ]; then
     DOCKER_CPU=$(jq '[.[].cpuPercent] | add // 0' <<< "$CONTAINERS_DATA")
