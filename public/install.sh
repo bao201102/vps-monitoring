@@ -611,13 +611,17 @@ while true; do
     '{agentId:$agentId, token:$token, cpuPercent:$cpuPercent, loadAvg1:$loadAvg1, loadAvg5:$loadAvg5, loadAvg15:$loadAvg15, memUsedBytes:$memUsedBytes, memTotalBytes:$memTotalBytes, swapUsedBytes:$swapUsedBytes, swapTotalBytes:$swapTotalBytes, diskUsedBytes:$diskUsedBytes, diskTotalBytes:$diskTotalBytes, diskReadBps:$diskReadBps, diskWriteBps:$diskWriteBps, netRxBytes:$netRxBytes, netTxBytes:$netTxBytes, netRxBps:$netRxBps, netTxBps:$netTxBps, dockerCpuPercent:$dockerCpuPercent, dockerMemUsedBytes:$dockerMemUsedBytes, dockerNetRxBps:$dockerNetRxBps, dockerNetTxBps:$dockerNetTxBps, dockerContainerCount:$dockerContainerCount, temperatureC:$temperatureC, gpuUtilPercent:$gpuUtilPercent, gpuMemUsedBytes:$gpuMemUsedBytes, gpuMemTotalBytes:$gpuMemTotalBytes, gpuPowerWatts:$gpuPowerWatts, uptimeSeconds:$uptimeSeconds, processCount:$processCount, services:$services[0], containers:$containers[0]}')
   rm -f "$_tmp_svc" "$_tmp_cont"
 
+  # Write payload to a temp file to avoid ARG_MAX limits on curl arguments
+  _tmp_payload_file=$(mktemp)
+  printf '%s' "$PAYLOAD" > "$_tmp_payload_file"
+
   # Send heartbeat and capture status code and response for debugging
   _tmp_resp=$(mktemp)
   HTTP_CODE=$(curl -sS -w "%{http_code}" -o "$_tmp_resp" --max-time 10 -X POST "$SERVER_URL/api/agents/heartbeat" \
     -H 'Content-Type: application/json' \
-    -d "$PAYLOAD" || echo "000")
+    -d @"$_tmp_payload_file" || echo "000")
   RESP=$(cat "$_tmp_resp")
-  rm -f "$_tmp_resp"
+  rm -f "$_tmp_payload_file" "$_tmp_resp"
 
   if [ "$HTTP_CODE" -ne 200 ]; then
     echo "Heartbeat failed (HTTP $HTTP_CODE): $RESP" >&2
