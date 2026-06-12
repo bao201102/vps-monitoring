@@ -568,7 +568,6 @@ while true; do
   SERVICES_DATA="$(read_services)"
 
   # Write large JSON blobs to temp files to avoid ARG_MAX limits
-  local _tmp_svc _tmp_cont
   _tmp_svc=$(mktemp); _tmp_cont=$(mktemp)
   printf '%s' "$SERVICES_DATA"   > "$_tmp_svc"
   printf '%s' "$CONTAINERS_DATA" > "$_tmp_cont"
