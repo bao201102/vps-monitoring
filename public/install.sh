@@ -135,6 +135,7 @@ SERVER_URL="$SERVER_URL"
 AGENT_ID="$AGENT_ID"
 AGENT_TOKEN="$AGENT_TOKEN"
 INTERVAL="$INTERVAL"
+LOGS_TAIL="500"
 EOF
 chmod 600 "$CONFIG_FILE"
 
@@ -148,6 +149,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CONFIG_FILE="${1:-$SCRIPT_DIR/agent.conf}"
 # shellcheck disable=SC1090
 . "$CONFIG_FILE"
+
+# Default configuration values
+LOGS_TAIL="${LOGS_TAIL:-500}"
 
 PREV_RX=0; PREV_TX=0; PREV_TS=0
 PREV_CPU_TOTAL=0; PREV_CPU_IDLE=0
@@ -304,7 +308,7 @@ read_docker_containers() {
     fi
 
     local logs_json="[]"
-    logs_json=$(timeout 3 docker logs --tail 20 "$name" 2>/dev/null | jq -R . | jq -s . || echo "[]")
+    logs_json=$(timeout 3 docker logs --tail "$LOGS_TAIL" "$name" 2>/dev/null | jq -R . | jq -s . || echo "[]")
 
     local inspect_json="{}"
     inspect_json=$(timeout 3 docker inspect --format '{{json .}}' "$name" 2>/dev/null | jq '{AppArmorProfile, Args, Config, State, NetworkSettings}' 2>/dev/null || echo "{}")

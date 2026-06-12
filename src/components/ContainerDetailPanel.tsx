@@ -1,13 +1,15 @@
 'use client';
 
 import useSWR from 'swr';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, RotateCw, Maximize2, Minimize2 } from 'lucide-react';
 import { ContainerData } from './ContainerTable';
 import { getMockContainerId } from '@/lib/containers';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
+
+const EMPTY_ARRAY: string[] = [];
 
 interface ContainerDetailPanelProps {
   container: ContainerData;
@@ -19,6 +21,9 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
   const [logsMaximized, setLogsMaximized] = useState(false);
   const [detailsMaximized, setDetailsMaximized] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const logContainerRef = useRef<HTMLDivElement>(null);
+  const maximizedLogContainerRef = useRef<HTMLDivElement>(null);
 
   const queryParams = new URLSearchParams();
   queryParams.set('name', container.name);
@@ -35,7 +40,7 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
   );
 
   const mockId = getMockContainerId(container.name);
-  const logs = data?.logs || [];
+  const logs = data?.logs || EMPTY_ARRAY;
   const details = data?.details || null;
   const showLoading = isLoading || isRefreshing;
 
@@ -47,6 +52,20 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
       document.body.style.overflow = '';
     };
   }, []);
+
+  // Scroll logs to bottom when they are loaded or change
+  useEffect(() => {
+    if (logContainerRef.current) {
+      logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
+    }
+  }, [logs, showLoading]);
+
+  // Scroll maximized logs to bottom when maximized or logs change
+  useEffect(() => {
+    if (logsMaximized && maximizedLogContainerRef.current) {
+      maximizedLogContainerRef.current.scrollTop = maximizedLogContainerRef.current.scrollHeight;
+    }
+  }, [logsMaximized, logs, showLoading]);
 
   // Refresh logs and details by calling SWR mutate
   const handleRefresh = async () => {
@@ -151,7 +170,10 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
                 </button>
               </div>
             </div>
-            <div className="terminal-block border border-border rounded-xl p-3.5 font-mono text-xs text-ink overflow-auto max-h-[260px] shadow-inner select-text selection:bg-accent/30">
+            <div 
+              ref={logContainerRef}
+              className="terminal-block border border-border rounded-xl p-3.5 font-mono text-xs text-ink overflow-auto max-h-[260px] shadow-inner select-text selection:bg-accent/30"
+            >
               {showLoading ? (
                 <div className="flex py-10 items-center justify-center text-ink-soft">
                   <RotateCw className="h-4 w-4 animate-spin text-accent" />
@@ -217,7 +239,10 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
               <Minimize2 className="h-5 w-5" />
             </button>
           </div>
-          <div className="terminal-block border border-border rounded-xl p-4 font-mono text-xs text-ink overflow-auto flex-grow shadow-inner select-text selection:bg-accent/30">
+          <div 
+            ref={maximizedLogContainerRef}
+            className="terminal-block border border-border rounded-xl p-4 font-mono text-xs text-ink overflow-auto flex-grow shadow-inner select-text selection:bg-accent/30"
+          >
             {showLoading ? (
               <div className="flex h-full items-center justify-center text-ink-soft">
                 <RotateCw className="h-5 w-5 animate-spin" />
