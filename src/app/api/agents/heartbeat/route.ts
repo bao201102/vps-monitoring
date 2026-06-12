@@ -10,6 +10,8 @@ import { SystemService } from '@/lib/models/SystemService';
 import { ServiceMetric } from '@/lib/models/ServiceMetric';
 import { DockerContainer } from '@/lib/models/DockerContainer';
 import { sendTelegramDisconnectIfNeeded, sendTelegramOverloadIfNeeded } from '@/lib/telegram-alerts';
+import { VpsPort } from '@/lib/models/VpsPort';
+import { VpsDomain } from '@/lib/models/VpsDomain';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -92,6 +94,17 @@ const schema = z.object({
     netTxBps: z.number().default(0),
     logs: z.array(z.string()).default([]),
     details: z.record(z.any()).default({}),
+  })).optional(),
+  ports: z.array(z.object({
+    proto: z.string(),
+    ip: z.string(),
+    port: z.number().int().min(1).max(65535),
+    service: z.string().default(''),
+    pid: z.number().int().nullable().optional(),
+  })).optional(),
+  domains: z.array(z.object({
+    domain: z.string(),
+    type: z.string(),
   })).optional(),
 });
 
@@ -287,6 +300,32 @@ export async function POST(req: Request) {
   } else if (parsed.data.dockerContainerCount === 0) {
     // Clean up if agent explicitly reports 0 container count
     await DockerContainer.deleteMany({ agentId: agent.agentId });
+  }
+
+  // Process and update Ports & Domains from the heartbeat payload
+  if (parsed.data.ports) {
+    await VpsPort.deleteMany({ agentId: agent.agentId });
+    if (parsed.data.ports.length > 0) {
+      await VpsPort.insertMany(parsed.data.ports.map(p => ({
+        agentId: agent.agentId,
+        proto: p.proto,
+        ip: p.ip,
+        port: p.port,
+        service: p.service,
+        pid: p.pid,
+      })));
+    }
+  }
+
+  if (parsed.data.domains) {
+    await VpsDomain.deleteMany({ agentId: agent.agentId });
+    if (parsed.data.domains.length > 0) {
+      await VpsDomain.insertMany(parsed.data.domains.map(d => ({
+        agentId: agent.agentId,
+        domain: d.domain,
+        type: d.type,
+      })));
+    }
   }
 
   const latestMetricObj = {

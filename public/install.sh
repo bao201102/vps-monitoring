@@ -467,6 +467,160 @@ read_services() {
   echo "$services_json"
 }
 
+read_active_ports() {
+  if ! command -v ss >/dev/null 2>&1; then
+    echo "[]"
+    return
+  fi
+
+  # Run ss -tulpnH and parse with awk to print space-separated lines:
+  # protocol ip port process_name pid
+  # Then read into jq to parse into JSON array.
+  ss -tulpnH 2>/dev/null | awk '
+    {
+      proto = $1
+      local_addr = $5
+      users = $7
+      
+      # Extract port and IP
+      idx = match(local_addr, /:[0-9]+$/)
+      if (idx > 0) {
+        ip = substr(local_addr, 1, idx - 1)
+        port = substr(local_addr, idx + 1)
+      } else {
+        ip = local_addr
+        port = ""
+      }
+      
+      # Clean IP format
+      if (ip == "*") ip = "0.0.0.0"
+      if (ip == "[::]") ip = "::"
+      
+      proc_name = "unknown"
+      pid = "null"
+      
+      # Parse users field: users:(("nginx",pid=1027,fd=6))
+      if (users != "") {
+        p_idx = match(users, /pid=[0-9]+/)
+        if (p_idx > 0) {
+          pid_part = substr(users, p_idx)
+          split(pid_part, parts, /[,)]/)
+          pid = substr(parts[1], 5)
+        }
+        
+        n_idx = match(users, /\"[^\"]+\"/)
+        if (n_idx > 0) {
+          proc_name = substr(users, n_idx + 1, RLENGTH - 2)
+        }
+      }
+      
+      if (port != "") {
+        print proto " " ip " " port " " proc_name " " pid
+      }
+    }
+  ' | sort -u | jq -R '
+    split(" ") | {
+      proto: .[0],
+      ip: .[1],
+      port: (.[2] | tonumber),
+      service: .[3],
+      pid: (if .[4] == "null" then null else (.[4] | tonumber? // null) end)
+    }
+  ' | jq -s 'unique_by(.proto, .ip, .port) | sort_by(.port)' || echo "[]"
+}
+
+read_host_domains() {
+  local domains_json="[]"
+  
+  # Temporary files
+  local _tmp_domains=$(mktemp)
+  touch "$_tmp_domains"
+  
+  # 1. Nginx
+  if [ -d /etc/nginx ]; then
+    find /etc/nginx/ -type f \( -name "*.conf" -o -name "nginx.conf" -o -path "*/sites-enabled/*" \) 2>/dev/null | while read -r conf_file; do
+      awk '
+        { sub(/#.*/, "") }
+        /^[[:space:]]*server_name[[:space:]]+/ {
+          sub(/^[[:space:]]*server_name[[:space:]]+/, "")
+          for (i = 1; i <= NF; i++) {
+            token = $i
+            if (token ~ /;$/) {
+              sub(/;$/, "", token)
+              if (token != "" && token != "_" && token != "localhost" && token !~ /^\$/) {
+                print token " nginx"
+              }
+              break
+            } else {
+              if (token != "" && token != "_" && token != "localhost" && token !~ /^\$/) {
+                print token " nginx"
+              }
+            }
+          }
+        }
+      ' "$conf_file" >> "$_tmp_domains" 2>/dev/null || true
+    done
+  fi
+
+  # 2. Apache
+  if [ -d /etc/apache2 ] || [ -d /etc/httpd ]; then
+    find /etc/apache2/ /etc/httpd/ /etc/apache/ -type f -name "*.conf" 2>/dev/null | while read -r conf_file; do
+      awk '
+        { sub(/#.*/, "") }
+        /^[[:space:]]*ServerName[[:space:]]+/ {
+          sub(/^[[:space:]]*ServerName[[:space:]]+/, "")
+          token = $1
+          if (token != "" && token != "localhost" && token !~ /^\$/) {
+            print token " apache"
+          }
+        }
+        /^[[:space:]]*ServerAlias[[:space:]]+/ {
+          sub(/^[[:space:]]*ServerAlias[[:space:]]+/, "")
+          for (i = 1; i <= NF; i++) {
+            token = $i
+            if (token != "" && token != "localhost" && token !~ /^\$/) {
+              print token " apache"
+            }
+          }
+        }
+      ' "$conf_file" >> "$_tmp_domains" 2>/dev/null || true
+    done
+  fi
+
+  # 3. Caddy
+  if [ -f /etc/caddy/Caddyfile ]; then
+    awk '
+      { sub(/#.*/, "") }
+      /^[[:space:]]*[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(:[0-9]+)?[[:space:]]*,?[[:space:]]*{?/ {
+        for (i = 1; i <= NF; i++) {
+          token = $i
+          sub(/,$/, "", token)
+          sub(/{$/, "", token)
+          if (token ~ /\.[a-zA-Z]{2,}/) {
+            sub(/^https?:\/\//, "", token)
+            sub(/:[0-9]+$/, "", token)
+            if (token != "" && token != "localhost") {
+              print token " caddy"
+            }
+          }
+        }
+      }
+    ' /etc/caddy/Caddyfile >> "$_tmp_domains" 2>/dev/null || true
+  fi
+
+  if [ -s "$_tmp_domains" ]; then
+    domains_json=$(sort -u "$_tmp_domains" | jq -R '
+      split(" ") | {
+        domain: .[0],
+        type: .[1]
+      }
+    ' | jq -s 'unique_by(.domain) | sort_by(.domain)' || echo "[]")
+  fi
+  
+  rm -f "$_tmp_domains"
+  echo "$domains_json"
+}
+
 send_status() {
   local status="$1"
   local payload
@@ -569,11 +723,15 @@ while true; do
   read GPU_UTIL GPU_MEM_USED GPU_MEM_TOTAL GPU_POWER <<<"$(read_gpu)"
 
   SERVICES_DATA="$(read_services)"
+  PORTS_DATA="$(read_active_ports)"
+  DOMAINS_DATA="$(read_host_domains)"
 
   # Write large JSON blobs to temp files to avoid ARG_MAX limits
-  _tmp_svc=$(mktemp); _tmp_cont=$(mktemp)
+  _tmp_svc=$(mktemp); _tmp_cont=$(mktemp); _tmp_ports=$(mktemp); _tmp_doms=$(mktemp)
   printf '%s' "$SERVICES_DATA"   > "$_tmp_svc"
   printf '%s' "$CONTAINERS_DATA" > "$_tmp_cont"
+  printf '%s' "$PORTS_DATA"      > "$_tmp_ports"
+  printf '%s' "$DOMAINS_DATA"    > "$_tmp_doms"
 
   PAYLOAD=$(jq -n \
     --arg agentId "$AGENT_ID" \
@@ -608,8 +766,10 @@ while true; do
     --argjson processCount  "$PROC_COUNT" \
     --slurpfile services   "$_tmp_svc" \
     --slurpfile containers "$_tmp_cont" \
-    '{agentId:$agentId, token:$token, cpuPercent:$cpuPercent, loadAvg1:$loadAvg1, loadAvg5:$loadAvg5, loadAvg15:$loadAvg15, memUsedBytes:$memUsedBytes, memTotalBytes:$memTotalBytes, swapUsedBytes:$swapUsedBytes, swapTotalBytes:$swapTotalBytes, diskUsedBytes:$diskUsedBytes, diskTotalBytes:$diskTotalBytes, diskReadBps:$diskReadBps, diskWriteBps:$diskWriteBps, netRxBytes:$netRxBytes, netTxBytes:$netTxBytes, netRxBps:$netRxBps, netTxBps:$netTxBps, dockerCpuPercent:$dockerCpuPercent, dockerMemUsedBytes:$dockerMemUsedBytes, dockerNetRxBps:$dockerNetRxBps, dockerNetTxBps:$dockerNetTxBps, dockerContainerCount:$dockerContainerCount, temperatureC:$temperatureC, gpuUtilPercent:$gpuUtilPercent, gpuMemUsedBytes:$gpuMemUsedBytes, gpuMemTotalBytes:$gpuMemTotalBytes, gpuPowerWatts:$gpuPowerWatts, uptimeSeconds:$uptimeSeconds, processCount:$processCount, services:$services[0], containers:$containers[0]}')
-  rm -f "$_tmp_svc" "$_tmp_cont"
+    --slurpfile ports      "$_tmp_ports" \
+    --slurpfile domains    "$_tmp_doms" \
+    '{agentId:$agentId, token:$token, cpuPercent:$cpuPercent, loadAvg1:$loadAvg1, loadAvg5:$loadAvg5, loadAvg15:$loadAvg15, memUsedBytes:$memUsedBytes, memTotalBytes:$memTotalBytes, swapUsedBytes:$swapUsedBytes, swapTotalBytes:$swapTotalBytes, diskUsedBytes:$diskUsedBytes, diskTotalBytes:$diskTotalBytes, diskReadBps:$diskReadBps, diskWriteBps:$diskWriteBps, netRxBytes:$netRxBytes, netTxBytes:$netTxBytes, netRxBps:$netRxBps, netTxBps:$netTxBps, dockerCpuPercent:$dockerCpuPercent, dockerMemUsedBytes:$dockerMemUsedBytes, dockerNetRxBps:$dockerNetRxBps, dockerNetTxBps:$dockerNetTxBps, dockerContainerCount:$dockerContainerCount, temperatureC:$temperatureC, gpuUtilPercent:$gpuUtilPercent, gpuMemUsedBytes:$gpuMemUsedBytes, gpuMemTotalBytes:$gpuMemTotalBytes, gpuPowerWatts:$gpuPowerWatts, uptimeSeconds:$uptimeSeconds, processCount:$processCount, services:$services[0], containers:$containers[0], ports:$ports[0], domains:$domains[0]}')
+  rm -f "$_tmp_svc" "$_tmp_cont" "$_tmp_ports" "$_tmp_doms"
 
   # Write payload to a temp file to avoid ARG_MAX limits on curl arguments
   _tmp_payload_file=$(mktemp)

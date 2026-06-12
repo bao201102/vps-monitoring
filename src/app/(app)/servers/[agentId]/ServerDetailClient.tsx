@@ -18,6 +18,7 @@ import {
   Check,
   Layers,
   Monitor,
+  Radio,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
@@ -28,6 +29,7 @@ import { DiskTab } from '@/components/DiskTab';
 import { ContainersTab } from '@/components/ContainersTab';
 import { ServicesTab } from '@/components/ServicesTab';
 import { GpuTab } from '@/components/GpuTab';
+import { PortsTab } from '@/components/PortsTab';
 
 interface AgentDetail {
   agentId: string;
@@ -119,12 +121,12 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [range, setRange] = useState('1h');
-  const [activeTab, setActiveTab] = useState<'core' | 'disk' | 'gpu' | 'containers' | 'service'>('core');
+  const [activeTab, setActiveTab] = useState<'core' | 'disk' | 'gpu' | 'containers' | 'service' | 'ports'>('core');
 
   // Sync tab from search params
   useEffect(() => {
     const tabParam = searchParams.get('tab');
-    if (tabParam === 'core' || tabParam === 'disk' || tabParam === 'gpu' || tabParam === 'containers' || tabParam === 'service') {
+    if (tabParam === 'core' || tabParam === 'disk' || tabParam === 'gpu' || tabParam === 'containers' || tabParam === 'service' || tabParam === 'ports') {
       setActiveTab(tabParam as any);
     }
   }, [searchParams]);
@@ -213,6 +215,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
     ...(hasGpu ? [{ id: 'gpu' as const, label: 'GPU', icon: Monitor }] : []),
     { id: 'containers' as const, label: 'Containers', icon: Container },
     { id: 'service' as const, label: 'Service', icon: Layers },
+    { id: 'ports' as const, label: 'Ports & Domains', icon: Radio },
   ];
 
   return (
@@ -474,6 +477,13 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
                 agentHostname={agent.hostname}
               />
             )}
+            {activeTab === 'ports' && (
+              <PortsTab
+                agentId={agent.agentId}
+                agentLabel={agent.label}
+                agentHostname={agent.hostname}
+              />
+            )}
           </>
         ) : (
           <>
@@ -545,6 +555,21 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
                 <span>System Services</span>
               </div>
               <ServicesTab
+                agentId={agent.agentId}
+                agentLabel={agent.label}
+                agentHostname={agent.hostname}
+              />
+            </div>
+
+            <div className="border-t border-border my-6" />
+
+            {/* Ports & Domains Section */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-2 px-1 text-sm font-bold text-ink tracking-tight">
+                <Radio className="h-4 w-4 text-accent" />
+                <span>Ports & Host Domains</span>
+              </div>
+              <PortsTab
                 agentId={agent.agentId}
                 agentLabel={agent.label}
                 agentHostname={agent.hostname}
