@@ -313,6 +313,13 @@ read_docker_containers() {
     local inspect_json="{}"
     inspect_json=$(timeout 3 docker inspect --format '{{json .}}' "$name" 2>/dev/null | jq '{AppArmorProfile, Args, Config, State, NetworkSettings}' 2>/dev/null || echo "{}")
 
+    # Use temp files for large JSON blobs (logs, details, accumulated payload)
+    # to avoid "Argument list too long" (E2BIG) when passing via --argjson
+    local _tmp_logs _tmp_details _tmp_payload
+    _tmp_logs=$(mktemp); _tmp_details=$(mktemp); _tmp_payload=$(mktemp)
+    printf '%s' "$logs_json"    > "$_tmp_logs"
+    printf '%s' "$inspect_json" > "$_tmp_details"
+    printf '%s' "$json_payload" > "$_tmp_payload"
     json_payload=$(jq --arg name "$name" \
                       --arg image "$image" \
                       --arg ports "$ports" \
@@ -322,9 +329,10 @@ read_docker_containers() {
                       --argjson mem "$mem" \
                       --argjson rx "$rx_bps" \
                       --argjson tx "$tx_bps" \
-                      --argjson logs "$logs_json" \
-                      --argjson details "$inspect_json" \
-                      '. += [{name:$name, image:$image, ports:$ports, status:$status, health:$health, cpuPercent:$cpu, memUsedBytes:$mem, netRxBps:$rx, netTxBps:$tx, logs:$logs, details:$details}]' <<< "$json_payload")
+                      --slurpfile logs    "$_tmp_logs" \
+                      --slurpfile details "$_tmp_details" \
+                      '. += [{name:$name, image:$image, ports:$ports, status:$status, health:$health, cpuPercent:$cpu, memUsedBytes:$mem, netRxBps:$rx, netTxBps:$tx, logs:$logs[0], details:$details[0]}]' "$_tmp_payload")
+    rm -f "$_tmp_logs" "$_tmp_details" "$_tmp_payload"
   done <<< "$ps_data"
 
   CONTAINERS_DATA="$json_payload"
@@ -559,6 +567,12 @@ while true; do
 
   SERVICES_DATA="$(read_services)"
 
+  # Write large JSON blobs to temp files to avoid ARG_MAX limits
+  local _tmp_svc _tmp_cont
+  _tmp_svc=$(mktemp); _tmp_cont=$(mktemp)
+  printf '%s' "$SERVICES_DATA"   > "$_tmp_svc"
+  printf '%s' "$CONTAINERS_DATA" > "$_tmp_cont"
+
   PAYLOAD=$(jq -n \
     --arg agentId "$AGENT_ID" \
     --arg token   "$AGENT_TOKEN" \
@@ -590,9 +604,10 @@ while true; do
     --argjson gpuPowerWatts "$GPU_POWER" \
     --argjson uptimeSeconds "$UPTIME" \
     --argjson processCount  "$PROC_COUNT" \
-    --argjson services      "$SERVICES_DATA" \
-    --argjson containers    "$CONTAINERS_DATA" \
-    '{agentId:$agentId, token:$token, cpuPercent:$cpuPercent, loadAvg1:$loadAvg1, loadAvg5:$loadAvg5, loadAvg15:$loadAvg15, memUsedBytes:$memUsedBytes, memTotalBytes:$memTotalBytes, swapUsedBytes:$swapUsedBytes, swapTotalBytes:$swapTotalBytes, diskUsedBytes:$diskUsedBytes, diskTotalBytes:$diskTotalBytes, diskReadBps:$diskReadBps, diskWriteBps:$diskWriteBps, netRxBytes:$netRxBytes, netTxBytes:$netTxBytes, netRxBps:$netRxBps, netTxBps:$netTxBps, dockerCpuPercent:$dockerCpuPercent, dockerMemUsedBytes:$dockerMemUsedBytes, dockerNetRxBps:$dockerNetRxBps, dockerNetTxBps:$dockerNetTxBps, dockerContainerCount:$dockerContainerCount, temperatureC:$temperatureC, gpuUtilPercent:$gpuUtilPercent, gpuMemUsedBytes:$gpuMemUsedBytes, gpuMemTotalBytes:$gpuMemTotalBytes, gpuPowerWatts:$gpuPowerWatts, uptimeSeconds:$uptimeSeconds, processCount:$processCount, services:$services, containers:$containers}')
+    --slurpfile services   "$_tmp_svc" \
+    --slurpfile containers "$_tmp_cont" \
+    '{agentId:$agentId, token:$token, cpuPercent:$cpuPercent, loadAvg1:$loadAvg1, loadAvg5:$loadAvg5, loadAvg15:$loadAvg15, memUsedBytes:$memUsedBytes, memTotalBytes:$memTotalBytes, swapUsedBytes:$swapUsedBytes, swapTotalBytes:$swapTotalBytes, diskUsedBytes:$diskUsedBytes, diskTotalBytes:$diskTotalBytes, diskReadBps:$diskReadBps, diskWriteBps:$diskWriteBps, netRxBytes:$netRxBytes, netTxBytes:$netTxBytes, netRxBps:$netRxBps, netTxBps:$netTxBps, dockerCpuPercent:$dockerCpuPercent, dockerMemUsedBytes:$dockerMemUsedBytes, dockerNetRxBps:$dockerNetRxBps, dockerNetTxBps:$dockerNetTxBps, dockerContainerCount:$dockerContainerCount, temperatureC:$temperatureC, gpuUtilPercent:$gpuUtilPercent, gpuMemUsedBytes:$gpuMemUsedBytes, gpuMemTotalBytes:$gpuMemTotalBytes, gpuPowerWatts:$gpuPowerWatts, uptimeSeconds:$uptimeSeconds, processCount:$processCount, services:$services[0], containers:$containers[0]}')
+  rm -f "$_tmp_svc" "$_tmp_cont"
 
   RESP=$(curl -fsS --max-time 10 -X POST "$SERVER_URL/api/agents/heartbeat" \
     -H 'Content-Type: application/json' \
