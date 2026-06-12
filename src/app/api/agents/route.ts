@@ -24,15 +24,6 @@ export async function GET() {
   /** Stable order (not by lastSeenAt) so dashboard / server list cards do not reorder every heartbeat. */
   const agents = await Agent.find({ userId: session.sub }).sort({ hostname: 1, agentId: 1 }).lean();
   const ids = agents.map((a) => a.agentId);
-
-  const latest = await Metric.aggregate([
-    { $match: { agentId: { $in: ids } } },
-    { $sort: { ts: -1 } },
-    { $group: { _id: '$agentId', metric: { $first: '$$ROOT' } } },
-  ]);
-  const latestMap = new Map<string, (typeof latest)[number]['metric']>();
-  for (const item of latest) latestMap.set(item._id, item.metric);
-
   // Fetch all service configurations for these agents from the DB
   const dbServices = await SystemService.find({ agentId: { $in: ids } }).lean();
   const servicesMap = new Map<string, { total: number; failed: number }>();
@@ -50,7 +41,7 @@ export async function GET() {
   const offlineAlertAt = new Date();
 
   const data = agents.map((a) => {
-    const m = latestMap.get(a.agentId);
+    const m = a.latest;
     const online =
       a.lastSeenAt && now - new Date(a.lastSeenAt).getTime() <= offlineMs ? true : false;
 

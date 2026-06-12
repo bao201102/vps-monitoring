@@ -36,12 +36,12 @@ export function MetricChart({ data, series, yFormatter, domain, height = 220 }: 
         <defs>
           {series.map((s) => (
             <linearGradient key={s.key} id={`g-${s.key}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={s.color} stopOpacity={0.28} />
-              <stop offset="100%" stopColor={s.color} stopOpacity={0} />
+              <stop offset="5%" stopColor={s.color} stopOpacity={0.2} />
+              <stop offset="95%" stopColor={s.color} stopOpacity={0.0} />
             </linearGradient>
           ))}
         </defs>
-        <CartesianGrid stroke="rgb(var(--chart-grid) / 1)" strokeDasharray="3 6" vertical={false} />
+        <CartesianGrid stroke="rgba(var(--chart-grid), 0.4)" strokeDasharray="3 6" vertical={false} />
         <XAxis
           dataKey="ts"
           tickFormatter={(v) => format(new Date(v), 'HH:mm')}
@@ -62,12 +62,15 @@ export function MetricChart({ data, series, yFormatter, domain, height = 220 }: 
         />
         <Tooltip
           contentStyle={{
-            background: 'rgb(var(--chart-tooltip-bg) / 1)',
-            border: '1px solid rgb(var(--chart-tooltip-border) / 1)',
-            borderRadius: 12,
-            padding: '8px 12px',
+            backgroundColor: 'rgba(var(--chart-tooltip-bg), 0.8)',
+            backdropFilter: 'blur(12px)',
+            borderColor: 'rgba(var(--color-border), 0.6)',
+            borderRadius: '14px',
+            padding: '10px 14px',
             fontSize: 12,
             color: 'rgb(var(--chart-tooltip-fg) / 1)',
+            boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+            border: '1px solid rgba(var(--color-border), 0.4)',
           }}
           labelFormatter={(v) => format(new Date(v as string), 'PP HH:mm:ss')}
           formatter={(value, name) => {
@@ -85,7 +88,9 @@ export function MetricChart({ data, series, yFormatter, domain, height = 220 }: 
             stroke={s.color}
             strokeWidth={2}
             fill={`url(#g-${s.key})`}
-            isAnimationActive={false}
+            isAnimationActive={true}
+            animationDuration={600}
+            animationEasing="ease-out"
           />
         ))}
       </AreaChart>

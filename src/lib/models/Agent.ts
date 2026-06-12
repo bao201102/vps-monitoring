@@ -36,6 +36,8 @@ export interface IAgent {
   alertTempLimit: number;
   alertOfflineEnabled: boolean;
 
+  latest?: any;
+
   createdAt: Date;
   updatedAt: Date;
 }
@@ -74,6 +76,8 @@ const AgentSchema = new Schema<IAgent>(
     alertTempEnabled: { type: Boolean, default: false },
     alertTempLimit: { type: Number, default: 80 },
     alertOfflineEnabled: { type: Boolean, default: true },
+
+    latest: { type: Schema.Types.Mixed },
   },
   { timestamps: true }
 );

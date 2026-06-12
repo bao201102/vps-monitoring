@@ -212,8 +212,8 @@ export function ContainerTable({
                   <tr
                     key={container.name + idx}
                     className={cn(
-                      "hover:bg-bg-soft/50 transition-colors cursor-pointer group",
-                      isSelected ? "bg-bg-muted/80 text-ink" : ""
+                      "hover:bg-bg-soft/70 transition-all cursor-pointer group border-l-2 border-transparent",
+                      isSelected ? "bg-bg-muted/90 text-ink border-l-accent shadow-sm" : ""
                     )}
                     onClick={() => {
                       if (isSelected) {

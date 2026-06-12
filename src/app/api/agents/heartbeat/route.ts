@@ -289,10 +289,7 @@ export async function POST(req: Request) {
     await DockerContainer.deleteMany({ agentId: agent.agentId });
   }
 
-  await agent.save();
-
-  await Metric.create({
-    agentId: agent.agentId,
+  const latestMetricObj = {
     ts: now,
     cpuPercent: parsed.data.cpuPercent,
     loadAvg1: parsed.data.loadAvg1,
@@ -327,6 +324,14 @@ export async function POST(req: Request) {
     gpuPowerWatts: parsed.data.gpuPowerWatts,
     uptimeSeconds: parsed.data.uptimeSeconds,
     processCount: parsed.data.processCount,
+  };
+
+  agent.latest = latestMetricObj;
+  await agent.save();
+
+  await Metric.create({
+    agentId: agent.agentId,
+    ...latestMetricObj,
   });
 
   const appSettings = await getUserResolvedAlertSettings(agent.userId);

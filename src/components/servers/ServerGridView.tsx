@@ -31,21 +31,21 @@ export function ServerGridView({ servers, visibleFields, onRefresh }: ServerGrid
 
   // Wide progress bar helper
   const renderWideProgressBar = (label: string, Icon: React.ComponentType<any>, val: number) => {
-    const barColor =
-      val >= 90 ? 'bg-danger' :
-      val >= 70 ? 'bg-warning' :
-      val < 0.1 ? 'bg-border' : 'bg-success';
+    const barGradient =
+      val >= 90 ? 'bg-gradient-to-r from-danger to-red-600 shadow-sm shadow-danger/25' :
+      val >= 70 ? 'bg-gradient-to-r from-warning to-amber-500 shadow-sm shadow-warning/25' :
+      val < 0.1 ? 'bg-border' : 'bg-gradient-to-r from-success to-emerald-500 shadow-sm shadow-success/25';
     return (
-      <div className="flex items-center justify-between py-1 text-xs">
+      <div className="flex items-center justify-between py-2 text-xs">
         <div className="flex items-center gap-2 text-ink-muted w-20 shrink-0">
-          <Icon className="h-3.5 w-3.5" />
-          <span>{label}</span>
+          <Icon className="h-4 w-4 text-ink-soft" />
+          <span className="font-medium">{label}</span>
         </div>
         <div className="flex items-center gap-3 flex-1 justify-end">
-          <span className="font-semibold text-ink w-10 text-right">{val.toFixed(1)}%</span>
-          <div className="flex-1 max-w-[120px] h-2 bg-bg-muted rounded-full overflow-hidden shrink-0">
+          <span className="font-semibold text-ink w-11 text-right">{val.toFixed(1)}%</span>
+          <div className="flex-1 max-w-[120px] h-2 bg-bg-muted/80 rounded-full overflow-hidden shrink-0 border border-border/30 p-[1px]">
             <div
-              className={`h-full rounded-full transition-all ${barColor}`}
+              className={`h-full rounded-full transition-all duration-500 ${barGradient}`}
               style={{ width: `${Math.min(100, Math.max(0, val))}%` }}
             />
           </div>
@@ -57,12 +57,12 @@ export function ServerGridView({ servers, visibleFields, onRefresh }: ServerGrid
   // Info row helper
   const renderInfoRow = (label: string, Icon: React.ComponentType<any>, val: React.ReactNode, isNet = false, isTemp = false) => {
     return (
-      <div className="flex items-center justify-between py-1 text-xs">
+      <div className="flex items-center justify-between py-2 text-xs">
         <div className="flex items-center gap-2 text-ink-muted">
-          <Icon className="h-3.5 w-3.5" />
-          <span>{label}</span>
+          <Icon className="h-4 w-4 text-ink-soft" />
+          <span className="font-medium">{label}</span>
         </div>
-        <div className={`font-mono text-right font-medium ${
+        <div className={`font-mono text-right font-semibold ${
           isNet ? 'text-success' : isTemp ? 'text-warning' : 'text-ink'
         }`}>
           {val}

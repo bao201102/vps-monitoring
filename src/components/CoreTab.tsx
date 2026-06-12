@@ -40,14 +40,18 @@ interface CoreTabProps {
 }
 
 const chartTooltipStyle = {
-  backgroundColor: 'rgb(var(--chart-tooltip-bg))',
-  borderColor: 'rgb(var(--chart-tooltip-border))',
-  borderRadius: '12px',
+  backgroundColor: 'rgba(var(--chart-tooltip-bg), 0.8)',
+  backdropFilter: 'blur(12px)',
+  borderColor: 'rgba(var(--color-border), 0.6)',
+  borderRadius: '14px',
   color: 'rgb(var(--chart-tooltip-fg))',
   fontSize: '12px',
+  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3), 0 8px 10px -6px rgba(0, 0, 0, 0.3)',
+  padding: '10px 14px',
+  border: '1px solid rgba(var(--color-border), 0.4)',
 };
 
-const chartGridStroke = 'rgb(var(--chart-grid))';
+const chartGridStroke = 'rgba(var(--chart-grid), 0.4)';
 const chartAxisStroke = 'rgb(var(--chart-axis))';
 
 /** Generate a stable HSL color for each sensor name based on its index */
@@ -128,15 +132,15 @@ export function CoreTab({ metrics, totalMemoryBytes, isGridLayout }: CoreTabProp
             <AreaChart data={metrics} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="cpuGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#2563eb" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#2563eb" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor="rgb(var(--color-accent))" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="rgb(var(--color-accent))" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="ts" tickFormatter={formatTime} stroke={chartAxisStroke} fontSize={10} tickLine={false} axisLine={false} />
               <YAxis stroke={chartAxisStroke} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => `${v.toFixed(0)}%`} domain={[0, 100]} />
               <Tooltip labelFormatter={formatTooltipLabel} contentStyle={chartTooltipStyle} formatter={(value: number) => [`${value.toFixed(2)}%`, 'CPU Usage']} />
-              <Area type="monotone" dataKey="cpuPercent" stroke="#3b82f6" strokeWidth={2} fillOpacity={1} fill="url(#cpuGradient)" />
+              <Area type="monotone" dataKey="cpuPercent" stroke="rgb(var(--color-accent))" strokeWidth={2} fillOpacity={1} fill="url(#cpuGradient)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -163,15 +167,15 @@ export function CoreTab({ metrics, totalMemoryBytes, isGridLayout }: CoreTabProp
             <AreaChart data={metrics} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <defs>
                 <linearGradient id="memGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
-                  <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor="rgb(var(--color-success))" stopOpacity={0.25} />
+                  <stop offset="95%" stopColor="rgb(var(--color-success))" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="ts" tickFormatter={formatTime} stroke={chartAxisStroke} fontSize={10} tickLine={false} axisLine={false} />
               <YAxis stroke={chartAxisStroke} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => formatBytes(v, 0)} domain={[0, latestMemTotal]} />
               <Tooltip labelFormatter={formatTooltipLabel} contentStyle={chartTooltipStyle} formatter={(value: number) => [formatBytes(value), 'Memory Used']} />
-              <Area type="monotone" dataKey="memUsedBytes" stroke="#10b981" strokeWidth={2} fillOpacity={1} fill="url(#memGradient)" />
+              <Area type="monotone" dataKey="memUsedBytes" stroke="rgb(var(--color-success))" strokeWidth={2} fillOpacity={1} fill="url(#memGradient)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -196,9 +200,9 @@ export function CoreTab({ metrics, totalMemoryBytes, isGridLayout }: CoreTabProp
               <YAxis stroke={chartAxisStroke} fontSize={10} tickLine={false} axisLine={false} domain={[0, 'auto']} />
               <Tooltip labelFormatter={formatTooltipLabel} contentStyle={chartTooltipStyle} />
               <Legend verticalAlign="bottom" height={36} iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
-              <Line type="monotone" dataKey="loadAvg1" name="1 min" stroke="#a855f7" strokeWidth={1.5} dot={false} />
-              <Line type="monotone" dataKey="loadAvg5" name="5 min" stroke="#3b82f6" strokeWidth={1.5} dot={false} />
-              <Line type="monotone" dataKey="loadAvg15" name="15 min" stroke="#f97316" strokeWidth={1.5} dot={false} />
+              <Line type="monotone" dataKey="loadAvg1" name="1 min" stroke="rgb(var(--color-accent))" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="loadAvg5" name="5 min" stroke="rgb(var(--color-warning))" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="loadAvg15" name="15 min" stroke="rgb(var(--color-danger))" strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         </div>
@@ -225,20 +229,20 @@ export function CoreTab({ metrics, totalMemoryBytes, isGridLayout }: CoreTabProp
             <AreaChart data={metrics} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
               <defs>
                 <linearGradient id="rxGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#0d9488" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#0d9488" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor="rgb(var(--color-success))" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="rgb(var(--color-success))" stopOpacity={0.0} />
                 </linearGradient>
                 <linearGradient id="txGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#db2777" stopOpacity={0.2} />
-                  <stop offset="95%" stopColor="#db2777" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor="rgb(var(--color-danger))" stopOpacity={0.15} />
+                  <stop offset="95%" stopColor="rgb(var(--color-danger))" stopOpacity={0.0} />
                 </linearGradient>
               </defs>
               <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="ts" tickFormatter={formatTime} stroke={chartAxisStroke} fontSize={10} tickLine={false} axisLine={false} />
               <YAxis stroke={chartAxisStroke} fontSize={10} tickLine={false} axisLine={false} tickFormatter={formatBps} />
               <Tooltip labelFormatter={formatTooltipLabel} contentStyle={chartTooltipStyle} formatter={(value: number, name: string) => [formatBps(value), name === 'netRxBps' ? 'Download' : 'Upload']} />
-              <Area type="monotone" dataKey="netRxBps" name="Download" stroke="#0d9488" strokeWidth={1.5} fillOpacity={1} fill="url(#rxGradient)" />
-              <Area type="monotone" dataKey="netTxBps" name="Upload" stroke="#db2777" strokeWidth={1.5} fillOpacity={1} fill="url(#txGradient)" />
+              <Area type="monotone" dataKey="netRxBps" name="Download" stroke="rgb(var(--color-success))" strokeWidth={2} fillOpacity={1} fill="url(#rxGradient)" />
+              <Area type="monotone" dataKey="netTxBps" name="Upload" stroke="rgb(var(--color-danger))" strokeWidth={2} fillOpacity={1} fill="url(#txGradient)" />
             </AreaChart>
           </ResponsiveContainer>
         </div>
@@ -261,15 +265,15 @@ export function CoreTab({ metrics, totalMemoryBytes, isGridLayout }: CoreTabProp
               <AreaChart data={metrics} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
                 <defs>
                   <linearGradient id="swapGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="rgb(var(--color-warning))" stopOpacity={0.25} />
+                    <stop offset="95%" stopColor="rgb(var(--color-warning))" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid stroke={chartGridStroke} strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="ts" tickFormatter={formatTime} stroke={chartAxisStroke} fontSize={10} tickLine={false} axisLine={false} />
                 <YAxis stroke={chartAxisStroke} fontSize={10} tickLine={false} axisLine={false} tickFormatter={(v) => formatBytes(v, 0)} domain={[0, latestSwapTotal]} />
                 <Tooltip labelFormatter={formatTooltipLabel} contentStyle={chartTooltipStyle} formatter={(value: number) => [formatBytes(value), 'Swap Used']} />
-                <Area type="monotone" dataKey="swapUsedBytes" stroke="#f59e0b" strokeWidth={2} fillOpacity={1} fill="url(#swapGradient)" />
+                <Area type="monotone" dataKey="swapUsedBytes" stroke="rgb(var(--color-warning))" strokeWidth={2} fillOpacity={1} fill="url(#swapGradient)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>

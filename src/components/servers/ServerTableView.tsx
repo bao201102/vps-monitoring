@@ -97,16 +97,16 @@ export function ServerTableView({
 
   // Mini progress bar helper
   const renderMiniProgressBar = (val: number) => {
-    const color =
-      val >= 90 ? 'bg-danger' :
-      val >= 70 ? 'bg-warning' :
-      val < 0.1 ? 'bg-border' : 'bg-success';
+    const barGradient =
+      val >= 90 ? 'bg-gradient-to-r from-danger to-red-600 shadow-sm shadow-danger/25' :
+      val >= 70 ? 'bg-gradient-to-r from-warning to-amber-500 shadow-sm shadow-warning/25' :
+      val < 0.1 ? 'bg-border' : 'bg-gradient-to-r from-success to-emerald-500 shadow-sm shadow-success/25';
     return (
-      <div className="flex items-center gap-2">
-        <span className="font-semibold text-ink w-10 text-right">{val.toFixed(1)}%</span>
-        <div className="w-12 h-1.5 bg-bg-muted rounded-full overflow-hidden shrink-0">
+      <div className="flex items-center gap-2.5 justify-end">
+        <span className="font-semibold text-ink w-11 text-right">{val.toFixed(1)}%</span>
+        <div className="w-14 h-2 bg-bg-muted/80 rounded-full overflow-hidden shrink-0 border border-border/30 p-[1px]">
           <div
-            className={`h-full rounded-full transition-all ${color}`}
+            className={`h-full rounded-full transition-all duration-500 ${barGradient}`}
             style={{ width: `${Math.min(100, Math.max(0, val))}%` }}
           />
         </div>
