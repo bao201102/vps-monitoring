@@ -105,6 +105,7 @@ const schema = z.object({
   domains: z.array(z.object({
     domain: z.string(),
     type: z.string(),
+    target: z.string().default('static'),
   })).optional(),
 });
 
@@ -324,6 +325,7 @@ export async function POST(req: Request) {
         agentId: agent.agentId,
         domain: d.domain,
         type: d.type,
+        target: d.target,
       })));
     }
   }

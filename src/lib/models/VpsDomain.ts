@@ -4,6 +4,7 @@ export interface IVpsDomain {
   agentId: string;
   domain: string;
   type: string; // nginx, apache, caddy
+  target?: string;
 }
 
 export interface IVpsDomainDocument extends IVpsDomain, Document {}
@@ -13,6 +14,7 @@ const VpsDomainSchema = new Schema<IVpsDomain>(
     agentId: { type: String, required: true, index: true },
     domain: { type: String, required: true },
     type: { type: String, required: true },
+    target: { type: String, default: 'static' },
   },
   { timestamps: true }
 );

@@ -548,14 +548,35 @@ read_host_domains() {
             if (token ~ /;$/) {
               sub(/;$/, "", token)
               if (token != "" && token != "_" && token != "localhost" && token !~ /^\$/) {
-                print token " nginx"
+                curr_names[++names_len] = token
               }
               break
             } else {
               if (token != "" && token != "_" && token != "localhost" && token !~ /^\$/) {
-                print token " nginx"
+                curr_names[++names_len] = token
               }
             }
+          }
+        }
+        /^[[:space:]]*proxy_pass[[:space:]]+/ {
+          sub(/^[[:space:]]*proxy_pass[[:space:]]+/, "")
+          sub(/;$/, "", $1)
+          target = $1
+          if (names_len > 0) {
+            for (j = 1; j <= names_len; j++) {
+              print curr_names[j] " nginx " target
+            }
+            delete curr_names
+            names_len = 0
+          }
+        }
+        ENDFILE {
+          if (names_len > 0) {
+            for (j = 1; j <= names_len; j++) {
+              print curr_names[j] " nginx static"
+            }
+            delete curr_names
+            names_len = 0
           }
         }
       ' "$conf_file" >> "$_tmp_domains" 2>/dev/null || true
@@ -569,18 +590,47 @@ read_host_domains() {
         { sub(/#.*/, "") }
         /^[[:space:]]*ServerName[[:space:]]+/ {
           sub(/^[[:space:]]*ServerName[[:space:]]+/, "")
-          token = $1
-          if (token != "" && token != "localhost" && token !~ /^\$/) {
-            print token " apache"
-          }
+          curr_name = $1
         }
         /^[[:space:]]*ServerAlias[[:space:]]+/ {
           sub(/^[[:space:]]*ServerAlias[[:space:]]+/, "")
           for (i = 1; i <= NF; i++) {
             token = $i
             if (token != "" && token != "localhost" && token !~ /^\$/) {
-              print token " apache"
+              curr_alias[++alias_len] = token
             }
+          }
+        }
+        /^[[:space:]]*ProxyPass[[:space:]]+/ {
+          sub(/^[[:space:]]*ProxyPass[[:space:]]+/, "")
+          if ($1 ~ /^\//) {
+            target = $2
+          } else {
+            target = $1
+          }
+          if (curr_name != "" && curr_name != "localhost") {
+            print curr_name " apache " target
+            curr_name = ""
+          }
+          if (alias_len > 0) {
+            for (j = 1; j <= alias_len; j++) {
+              print curr_alias[j] " apache " target
+            }
+            delete curr_alias
+            alias_len = 0
+          }
+        }
+        ENDFILE {
+          if (curr_name != "" && curr_name != "localhost") {
+            print curr_name " apache static"
+            curr_name = ""
+          }
+          if (alias_len > 0) {
+            for (j = 1; j <= alias_len; j++) {
+              print curr_alias[j] " apache static"
+            }
+            delete curr_alias
+            alias_len = 0
           }
         }
       ' "$conf_file" >> "$_tmp_domains" 2>/dev/null || true
@@ -600,9 +650,29 @@ read_host_domains() {
             sub(/^https?:\/\//, "", token)
             sub(/:[0-9]+$/, "", token)
             if (token != "" && token != "localhost") {
-              print token " caddy"
+              curr_caddy[++caddy_len] = token
             }
           }
+        }
+      }
+      /^[[:space:]]*reverse_proxy[[:space:]]+/ {
+        sub(/^[[:space:]]*reverse_proxy[[:space:]]+/, "")
+        target = $1
+        if (caddy_len > 0) {
+          for (j = 1; j <= caddy_len; j++) {
+            print curr_caddy[j] " caddy " target
+          }
+          delete curr_caddy
+          caddy_len = 0
+        }
+      }
+      ENDFILE {
+        if (caddy_len > 0) {
+          for (j = 1; j <= caddy_len; j++) {
+            print curr_caddy[j] " caddy static"
+          }
+          delete curr_caddy
+          caddy_len = 0
         }
       }
     ' /etc/caddy/Caddyfile >> "$_tmp_domains" 2>/dev/null || true
@@ -612,7 +682,8 @@ read_host_domains() {
     domains_json=$(sort -u "$_tmp_domains" | jq -R '
       split(" ") | {
         domain: .[0],
-        type: .[1]
+        type: .[1],
+        target: (.[2] // "static")
       }
     ' | jq -s 'unique_by(.domain) | sort_by(.domain)' || echo "[]")
   fi

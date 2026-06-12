@@ -28,6 +28,7 @@ export interface VpsPortData {
 export interface VpsDomainData {
   domain: string;
   type: string;
+  target?: string;
   updatedAt?: string;
 }
 
@@ -56,7 +57,8 @@ export function PortsTab({ agentId, agentLabel, agentHostname }: PortsTabProps) 
     const q = searchQuery.toLowerCase();
     return domains.filter((d) => 
       d.domain.toLowerCase().includes(q) || 
-      d.type.toLowerCase().includes(q)
+      d.type.toLowerCase().includes(q) ||
+      (d.target && d.target.toLowerCase().includes(q))
     );
   }, [domains, searchQuery]);
 
@@ -189,22 +191,34 @@ export function PortsTab({ agentId, agentLabel, agentHostname }: PortsTabProps) 
               <thead>
                 <tr className="border-b border-border text-ink-soft font-semibold bg-bg-muted/40 select-none">
                   <th className="py-2.5 px-4">Domain / Host</th>
-                  <th className="py-2.5 px-4 w-28">Proxy Type</th>
+                  <th className="py-2.5 px-4">Proxy Target</th>
+                  <th className="py-2.5 px-4 w-24">Proxy Type</th>
                   <th className="py-2.5 px-3 w-12 text-center">Link</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border text-ink">
                 {filteredDomains.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="py-12 text-center text-ink-soft font-mono">
+                    <td colSpan={4} className="py-12 text-center text-ink-soft font-mono">
                       No domains found
                     </td>
                   </tr>
                 ) : (
                   filteredDomains.map((domain, idx) => (
                     <tr key={domain.domain + idx} className="hover:bg-bg-soft/50 transition-colors">
-                      <td className="py-3 px-4 font-mono font-medium text-ink break-all">
+                      <td className="py-3 px-4 font-mono font-medium text-ink break-all text-xs">
                         {domain.domain}
+                      </td>
+                      <td className="py-3 px-4 font-mono">
+                        {domain.target && domain.target !== 'static' ? (
+                          <span className="text-accent font-semibold text-[10px] bg-accent/5 px-2 py-0.5 rounded-md border border-accent/10 whitespace-nowrap">
+                            {domain.target}
+                          </span>
+                        ) : (
+                          <span className="text-ink-soft font-normal text-[10px] bg-bg-muted/50 px-2 py-0.5 rounded-md border border-border/40 whitespace-nowrap">
+                            static / local
+                          </span>
+                        )}
                       </td>
                       <td className="py-3 px-4">
                         <span className={cn(

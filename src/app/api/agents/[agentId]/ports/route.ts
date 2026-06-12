@@ -36,18 +36,18 @@ const DEFAULT_MOCK_PORTS = [
 
 const MOCK_DOMAINS: Record<string, any[]> = {
   'instance-20260414-1357': [
-    { domain: 'api.myproduct.com', type: 'nginx' },
-    { domain: 'myproduct.com', type: 'nginx' },
-    { domain: 'admin.myproduct.com', type: 'nginx' },
+    { domain: 'api.myproduct.com', type: 'nginx', target: 'http://localhost:8080' },
+    { domain: 'myproduct.com', type: 'nginx', target: 'static' },
+    { domain: 'admin.myproduct.com', type: 'nginx', target: 'http://localhost:8080' },
   ],
   'monitoring': [
-    { domain: 'monitor.company.local', type: 'nginx' },
-    { domain: 'status.company.com', type: 'nginx' },
+    { domain: 'monitor.company.local', type: 'nginx', target: 'http://localhost:3000' },
+    { domain: 'status.company.com', type: 'nginx', target: 'static' },
   ],
 };
 
 const DEFAULT_MOCK_DOMAINS = [
-  { domain: 'mywebsite.com', type: 'nginx' },
+  { domain: 'mywebsite.com', type: 'nginx', target: 'http://127.0.0.1:8080' },
 ];
 
 export async function GET(_req: Request, { params }: RouteContext) {
