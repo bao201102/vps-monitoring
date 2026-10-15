@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import {
   getUserAlertSettings,
+  SettingsValidationError,
   updateUserAlertSettings,
 } from '@/lib/user-settings';
 import { getSessionFromCookies } from '@/lib/auth';
@@ -17,6 +18,7 @@ const putSchema = z.object({
   clearTelegramBotToken: z.boolean().optional(),
   telegramChatId: z.string().max(64).optional(),
   telegramTopicId: z.string().max(64).optional(),
+  webhookUrl: z.string().max(2048).optional(),
   alertCpuPercent: z.number().int().min(1).max(100).optional(),
   alertCpuEnabled: z.boolean().optional(),
   alertRamPercent: z.number().int().min(1).max(100).optional(),
@@ -26,6 +28,10 @@ const putSchema = z.object({
   alertTempLimit: z.number().int().min(1).max(150).optional(),
   alertTempEnabled: z.boolean().optional(),
   alertOfflineEnabled: z.boolean().optional(),
+  alertServiceEnabled: z.boolean().optional(),
+  alertContainerEnabled: z.boolean().optional(),
+  alertDomainEnabled: z.boolean().optional(),
+  alertSslDays: z.number().int().min(1).max(90).optional(),
   telegramCooldownSeconds: z.number().int().min(60).max(86_400).optional(),
 });
 
@@ -64,7 +70,7 @@ export async function PUT(req: Request) {
       .lean();
     return NextResponse.json({ ...settings, agents });
   } catch (e) {
-    if (e instanceof TelegramTokenRejectedError) {
+    if (e instanceof TelegramTokenRejectedError || e instanceof SettingsValidationError) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }
     console.error('[settings/alerts PUT]', e);

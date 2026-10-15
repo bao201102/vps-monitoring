@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Server, Settings, Users } from 'lucide-react';
+import { Server, Settings, Siren, Users } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -11,6 +11,7 @@ export function MobileNav({ role }: { role: string }) {
 
   const navItems = [
     { href: '/', label: 'Servers', icon: Server },
+    { href: '/incidents', label: 'Incidents', icon: Siren },
     role === 'admin' && { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/settings', label: 'Settings', icon: Settings },
   ].filter(Boolean) as { href: string; label: string; icon: any }[];

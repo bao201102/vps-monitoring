@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { connectDB } from '@/lib/db';
 import { User } from '@/lib/models/User';
 import { verifyPassword, signSession, setSessionCookie } from '@/lib/auth';
+import { limitByIp } from '@/lib/http';
 
 export const runtime = 'nodejs';
 
@@ -12,6 +13,9 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  const limited = limitByIp(req, 'login', 10, 5 * 60_000);
+  if (limited) return limited;
+
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -29,12 +33,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
   }
 
-  const token = await signSession({
-    sub: user._id.toString(),
-    username: user.username,
-    role: 'admin',
-  });
-  await setSessionCookie(token);
+  await setSessionCookie(await signSession(user));
 
   return NextResponse.json({ ok: true, username: user.username });
 }

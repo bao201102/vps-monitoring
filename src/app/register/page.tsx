@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { isSetupComplete } from '@/lib/setup';
+import { env } from '@/lib/env';
 import { SignupForm } from './SignupForm';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -11,6 +12,9 @@ export const dynamic = 'force-dynamic';
 export default async function RegisterPage() {
   if (!(await isSetupComplete())) {
     redirect('/setup');
+  }
+  if (!env.ALLOW_SIGNUP) {
+    redirect('/login');
   }
 
   return (

@@ -29,9 +29,8 @@ export interface ContainerData {
   image: string;
   status: string;
   updated: string;
-  cpuWeight?: number;
-  memWeight?: number;
-  netWeight?: number;
+  containerId?: string | null;
+  remoteCommands?: boolean;
   color?: string;
 }
 

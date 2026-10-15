@@ -26,8 +26,14 @@ interface MetricPoint {
   dockerNetTxBps: number;
 }
 
+interface ContainerSeriesPoint {
+  ts: string;
+  series: Record<string, { cpu: number; mem: number; net: number }>;
+}
+
 interface ContainersTabProps {
   agentId: string;
+  range: string;
   metrics: MetricPoint[];
   isGridLayout: boolean;
   agentLabel?: string;
@@ -49,6 +55,7 @@ const chartAxisStroke = 'rgb(var(--chart-axis))';
 
 export function ContainersTab({
   agentId,
+  range,
   metrics,
   isGridLayout,
   agentLabel,
@@ -60,6 +67,12 @@ export function ContainersTab({
     `/api/containers?agentId=${agentId}`,
     fetcher,
     { refreshInterval: 5000 }
+  );
+
+  const { data: history } = useSWR<{ points: ContainerSeriesPoint[] }>(
+    `/api/agents/${agentId}/containers/metrics?range=${range}`,
+    fetcher,
+    { refreshInterval: 15000 }
   );
 
   const containersMeta = useMemo(() => data?.containers || [], [data?.containers]);
@@ -81,28 +94,19 @@ export function ContainersTab({
     }
   };
 
-  // Preprocess metrics to distribute docker usage among containers
+  // Pivot per-container history into one row per timestamp for the stacked charts.
   const chartData = useMemo(() => {
-    return metrics.map((m) => {
-      const dataPoint: Record<string, unknown> = { ts: m.ts };
-
+    return (history?.points ?? []).map((p) => {
+      const dataPoint: Record<string, unknown> = { ts: p.ts };
       containersMeta.forEach((c) => {
-        const cCpu = m.dockerCpuPercent * (c.cpuWeight ?? 0);
-        const cMem = m.dockerMemUsedBytes * (c.memWeight ?? 0);
-        const cNet = (m.dockerNetRxBps + m.dockerNetTxBps) * (c.netWeight ?? 0);
-
-        dataPoint[`${c.name}_cpu`] = cCpu;
-        dataPoint[`${c.name}_mem`] = cMem;
-        dataPoint[`${c.name}_net`] = cNet;
+        const s = p.series[c.name];
+        dataPoint[`${c.name}_cpu`] = s?.cpu ?? 0;
+        dataPoint[`${c.name}_mem`] = s?.mem ?? 0;
+        dataPoint[`${c.name}_net`] = s?.net ?? 0;
       });
-
-      dataPoint.totalCpu = m.dockerCpuPercent;
-      dataPoint.totalMem = m.dockerMemUsedBytes;
-      dataPoint.totalNet = m.dockerNetRxBps + m.dockerNetTxBps;
-
       return dataPoint;
     });
-  }, [metrics, containersMeta]);
+  }, [history?.points, containersMeta]);
 
   // Extract latest metrics for the table
   const containersTableData = data?.containers || [];

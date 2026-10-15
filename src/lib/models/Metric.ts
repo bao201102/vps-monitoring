@@ -34,10 +34,43 @@ export interface IMetric {
   processCount: number;
 }
 
+/** Numeric fields averaged by the charts and the hourly rollup. */
+export const METRIC_AVG_FIELDS = [
+  'cpuPercent',
+  'loadAvg1',
+  'loadAvg5',
+  'loadAvg15',
+  'memUsedBytes',
+  'swapUsedBytes',
+  'diskUsedBytes',
+  'diskReadBps',
+  'diskWriteBps',
+  'netRxBps',
+  'netTxBps',
+  'dockerCpuPercent',
+  'dockerMemUsedBytes',
+  'dockerNetRxBps',
+  'dockerNetTxBps',
+  'temperatureC',
+  'gpuUtilPercent',
+  'gpuMemUsedBytes',
+  'gpuPowerWatts',
+] as const;
+
+/** Fields where the last value of a bucket is the meaningful one. */
+export const METRIC_LAST_FIELDS = [
+  'memTotalBytes',
+  'swapTotalBytes',
+  'diskTotalBytes',
+  'dockerContainerCount',
+  'gpuMemTotalBytes',
+  'temperatures',
+] as const;
+
 const MetricSchema = new Schema<IMetric>(
   {
-    agentId: { type: String, required: true, index: true },
-    ts: { type: Date, required: true, index: true },
+    agentId: { type: String, required: true },
+    ts: { type: Date, required: true },
     cpuPercent: { type: Number, default: 0 },
     loadAvg1: { type: Number, default: 0 },
     loadAvg5: { type: Number, default: 0 },
@@ -68,7 +101,9 @@ const MetricSchema = new Schema<IMetric>(
     uptimeSeconds: { type: Number, default: 0 },
     processCount: { type: Number, default: 0 },
   },
-  { timestamps: false }
+  // autoIndex off: the TTL index depends on METRICS_RETENTION_DAYS and is
+  // managed by ensureIndexes() in src/lib/maintenance.ts.
+  { timestamps: false, autoIndex: false }
 );
 
 MetricSchema.index({ agentId: 1, ts: -1 });

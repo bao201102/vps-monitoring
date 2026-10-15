@@ -5,7 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, RotateCw, Maximize2, Minimize2 } from 'lucide-react';
 import { ContainerData } from './ContainerTable';
-import { getMockContainerId } from '@/lib/containers';
+import { CommandButtons } from './CommandButtons';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -30,16 +30,13 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
   if (container.agentId) {
     queryParams.set('agentId', container.agentId);
   }
-  if (container.system) {
-    queryParams.set('system', container.system);
-  }
 
   const { data, error, isLoading, mutate } = useSWR<{ logs: string[]; details: any; error?: string }>(
     `/api/containers/detail?${queryParams.toString()}`,
     fetcher
   );
 
-  const mockId = getMockContainerId(container.name);
+  const shortId = typeof data?.details?.Id === 'string' ? data.details.Id.slice(0, 12) : null;
   const logs = data?.logs || EMPTY_ARRAY;
   const details = data?.details || null;
   const showLoading = isLoading || isRefreshing;
@@ -128,13 +125,17 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
           <div className="space-y-1">
             <h2 className="text-lg font-bold tracking-tight text-ink">{container.name}</h2>
             <div className="text-xs text-ink-muted flex flex-wrap items-center gap-1.5">
-              <span>{container.system || 'nub.io.vn'}</span>
+              <span>{container.system}</span>
               <span className="text-border">•</span>
               <span className="text-ink">{container.status}</span>
               <span className="text-border">•</span>
               <span className="text-ink truncate max-w-[150px]" title={container.image}>{container.image}</span>
-              <span className="text-border">•</span>
-              <span className="font-mono text-xs text-ink-soft bg-bg-muted px-1.5 py-0.5 rounded border border-border">{mockId}</span>
+              {shortId && (
+                <>
+                  <span className="text-border">•</span>
+                  <span className="font-mono text-xs text-ink-soft bg-bg-muted px-1.5 py-0.5 rounded border border-border">{shortId}</span>
+                </>
+              )}
             </div>
           </div>
           <button 
@@ -148,6 +149,20 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
 
         {/* Scrollable Drawer Content */}
         <div className="p-5 flex-grow overflow-y-auto space-y-6">
+          {container.agentId && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-ink uppercase tracking-wider">Actions</h3>
+              <CommandButtons
+                agentId={container.agentId}
+                kind="container"
+                target={container.name}
+                remoteCommands={Boolean(container.remoteCommands)}
+                isRunning={/^Up/i.test(container.status)}
+                onDone={() => void mutate()}
+              />
+            </div>
+          )}
+
           
           {/* Logs Card Section */}
           <div className="space-y-2 flex flex-col">

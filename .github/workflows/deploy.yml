@@ -3,17 +3,20 @@ name: VPS Monitoring CI/CD
 on:
   push:
     branches: [ "main" ]
+  # PRs only run the checks; deploy + notification are push-to-main only.
+  pull_request:
+    branches: [ "main" ]
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 # Only one deploy at a time: a newer push waits instead of building concurrently on the VPS.
 concurrency:
-  group: deploy-vps
+  group: ${{ github.event_name == 'push' && 'deploy-vps' || format('ci-{0}', github.ref) }}
   cancel-in-progress: false
 
 jobs:
-  # Job 1: Source code lint check
+  # Job 1: lint, typecheck, unit tests and a production build
   lint:
     runs-on: ubuntu-latest
     steps:
@@ -32,9 +35,24 @@ jobs:
       - name: Run ESLint
         run: npm run lint
 
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Check agent scripts
+        run: bash -n agent/install.sh && bash -n agent/agent.sh
+
+      - name: Production build
+        run: npm run build
+        env:
+          NEXT_TELEMETRY_DISABLED: 1
+
   # Job 2: Pull code and build the image directly on the VPS (no registry)
   deploy:
     needs: lint
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Build & deploy on VPS via SSH
@@ -61,7 +79,7 @@ jobs:
   notify-telegram:
     needs: [lint, deploy]
     runs-on: ubuntu-latest
-    if: always()
+    if: always() && github.event_name == 'push'
     steps:
       - name: Send Telegram notification
         run: |

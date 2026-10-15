@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server';
-import { getUserResolvedAlertSettings } from '@/lib/user-settings';
 import { connectDB } from '@/lib/db';
 import { Agent } from '@/lib/models/Agent';
-import { Metric } from '@/lib/models/Metric';
 import { SystemService } from '@/lib/models/SystemService';
+import { Incident } from '@/lib/models/Incident';
 import { getSessionFromCookies } from '@/lib/auth';
 import { env } from '@/lib/env';
-import {
-  sendTelegramDisconnectIfNeeded,
-  shouldSendTelegramDisconnectAlert,
-} from '@/lib/telegram-alerts';
+import { compareVersions, latestAgentVersion } from '@/lib/agent-script';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -22,43 +18,41 @@ export async function GET() {
 
   await connectDB();
   /** Stable order (not by lastSeenAt) so dashboard / server list cards do not reorder every heartbeat. */
-  const agents = await Agent.find({ userId: session.sub }).sort({ hostname: 1, agentId: 1 }).lean();
+  const agents = await Agent.find({ userId: session.sub })
+    .select('-token -nextToken -portsHash -domainsHash')
+    .sort({ hostname: 1, agentId: 1 })
+    .lean();
   const ids = agents.map((a) => a.agentId);
-  // Fetch all service configurations for these agents from the DB
-  const dbServices = await SystemService.find({ agentId: { $in: ids } }).lean();
-  const servicesMap = new Map<string, { total: number; failed: number }>();
-  for (const s of dbServices) {
-    const entry = servicesMap.get(s.agentId) || { total: 0, failed: 0 };
-    entry.total += 1;
-    if (s.state === 'Failed' || s.subState === 'Failed') {
-      entry.failed += 1;
-    }
-    servicesMap.set(s.agentId, entry);
-  }
+
+  const [serviceCounts, incidentCounts, latestVersion] = await Promise.all([
+    SystemService.aggregate<{ _id: string; total: number; failed: number }>([
+      { $match: { agentId: { $in: ids } } },
+      {
+        $group: {
+          _id: '$agentId',
+          total: { $sum: 1 },
+          failed: {
+            $sum: { $cond: [{ $or: [{ $eq: ['$state', 'Failed'] }, { $eq: ['$subState', 'Failed'] }] }, 1, 0] },
+          },
+        },
+      },
+    ]),
+    Incident.aggregate<{ _id: string; open: number }>([
+      { $match: { agentId: { $in: ids }, status: 'open' } },
+      { $group: { _id: '$agentId', open: { $sum: 1 } } },
+    ]),
+    latestAgentVersion(),
+  ]);
+  const servicesMap = new Map(serviceCounts.map((s) => [s._id, s]));
+  const incidentsMap = new Map(incidentCounts.map((s) => [s._id, s.open]));
 
   const offlineMs = env.AGENT_OFFLINE_AFTER_SECONDS * 1000;
   const now = Date.now();
-  const offlineAlertAt = new Date();
 
   const data = agents.map((a) => {
     const m = a.latest;
-    const online =
-      a.lastSeenAt && now - new Date(a.lastSeenAt).getTime() <= offlineMs ? true : false;
-
+    const online = Boolean(a.lastSeenAt && now - new Date(a.lastSeenAt).getTime() <= offlineMs);
     const servInfo = servicesMap.get(a.agentId);
-    let servicesCount = servInfo?.total ?? 0;
-    let servicesFailedCount = servInfo?.failed ?? 0;
-
-    // Fallback for mock systems if no data is in DB yet
-    if (servicesCount === 0) {
-      if (a.agentId === 'instance-20260414-1357') {
-        servicesCount = 8;
-        servicesFailedCount = 1;
-      } else if (a.agentId === 'monitoring') {
-        servicesCount = 7;
-        servicesFailedCount = 0;
-      }
-    }
     return {
       agentId: a.agentId,
       hostname: a.hostname,
@@ -77,8 +71,13 @@ export async function GET() {
       online,
       lastSeenAt: a.lastSeenAt,
       registeredAt: a.registeredAt,
-      servicesCount,
-      servicesFailedCount,
+      agentVersion: a.agentVersion ?? null,
+      updateAvailable: compareVersions(a.agentVersion ?? '0', latestVersion) < 0,
+      remoteCommands: Boolean(a.remoteCommands),
+      disks: a.disks ?? [],
+      servicesCount: servInfo?.total ?? 0,
+      servicesFailedCount: servInfo?.failed ?? 0,
+      openIncidents: incidentsMap.get(a.agentId) ?? 0,
       latest: m
         ? {
             ts: m.ts,
@@ -112,24 +111,5 @@ export async function GET() {
     };
   });
 
-  const appSettings = await getUserResolvedAlertSettings(session.sub);
-
-  const offlineAlertCandidates = agents.filter((a) => {
-    const online =
-      a.lastSeenAt && now - new Date(a.lastSeenAt).getTime() <= offlineMs ? true : false;
-    return !online && shouldSendTelegramDisconnectAlert(a, appSettings);
-  });
-  if (offlineAlertCandidates.length > 0) {
-    for (const agent of offlineAlertCandidates) {
-      const sent = await sendTelegramDisconnectIfNeeded(agent, appSettings, env.APP_URL, 'offline');
-      if (sent) {
-        await Agent.updateOne(
-          { agentId: agent.agentId },
-          { $set: { lastTelegramOfflineAlertAt: offlineAlertAt } }
-        );
-      }
-    }
-  }
-
-  return NextResponse.json({ agents: data });
+  return NextResponse.json({ agents: data, latestAgentVersion: latestVersion });
 }

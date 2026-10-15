@@ -1,15 +1,19 @@
 import Link from 'next/link';
-import { ArrowLeft, Boxes, Code2, ShieldCheck, Terminal, Container, Settings, Users } from 'lucide-react';
+import { ArrowLeft, Code2, ShieldCheck, Terminal, Container, Settings, Users, Siren } from 'lucide-react';
 import { env } from '@/lib/env';
+import { redirect } from 'next/navigation';
 import { getSessionFromCookies } from '@/lib/auth';
+import { getOrCreateEnrollToken } from '@/lib/enroll';
 import { InstallCommand } from './InstallCommand';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DocsPage() {
   const session = await getSessionFromCookies();
-  const userId = session?.sub ?? '';
-  const cmd = `curl -fsSL "${env.APP_URL.replace(/\/$/, '')}/api/install?interval=15&userId=${userId}" | sudo bash`;
+  if (!session) redirect('/login');
+  const userId = session.sub;
+  const enrollToken = await getOrCreateEnrollToken(userId);
+  const cmd = `curl -fsSL "${env.APP_URL.replace(/\/$/, '')}/api/install?interval=15&token=${enrollToken}" | sudo bash`;
   return (
     <div className="space-y-6">
       <div>
@@ -37,13 +41,13 @@ export default async function DocsPage() {
           The installation script will:
         </p>
         <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-ink-muted">
-          <li>Generate a unique <code className="text-ink-muted">agentId</code> and authorization token.</li>
-          <li>Auto-register the VPS with this dashboard.</li>
+          <li>Download the agent and register the VPS with your enrollment token.</li>
+          <li>Receive its own <code className="text-ink-muted">agentId</code> and agent token.</li>
           <li>
             Install an isolated systemd service{' '}
             <code className="text-ink-muted">vps-monitor-agent-{userId}</code> that survives reboots.
           </li>
-          <li>Report system health metrics (CPU, RAM, swap, disk, network) every 15 seconds.</li>
+          <li>Report CPU, RAM, swap, every mount point, network, temperatures, services, containers, ports and domains every 15 seconds.</li>
         </ul>
 
         <div className="mt-4 border-t border-border/60 pt-4">
@@ -60,154 +64,105 @@ export default async function DocsPage() {
         </div>
       </Section>
 
-      <Section icon={Container} title="Docker Container Management">
-        <p className="text-sm text-ink-muted">
-          The dashboard tracks active Docker containers across all your registered servers.
-        </p>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-ink-muted">
-          <li>
-            <strong className="text-ink">Real-time Metrics:</strong> Aggregates live CPU, Memory, and Network I/O metrics interpolated directly from agent heartbeats.
-          </li>
-          <li>
-            <strong className="text-ink">Container Inspect:</strong> View image tags, port mappings, status uptime, and health checks.
-          </li>
-          <li>
-            <strong className="text-ink">Live Logs:</strong> Read container output logs directly from the dashboard details panel.
-          </li>
-        </ul>
-      </Section>
-
-      <Section icon={Settings} title="System Services Control">
-        <p className="text-sm text-ink-muted">
-          Monitor and control systemd services on your VPS fleet without opening a SSH session.
-        </p>
-        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-ink-muted">
-          <li>
-            <strong className="text-ink">Service List:</strong> View active, inactive, or failed services, along with their description, current CPU, and memory footprints.
-          </li>
-          <li>
-            <strong className="text-ink">Remote Controls:</strong> Trigger <code className="text-ink-muted">start</code>, <code className="text-ink-muted">stop</code>, or <code className="text-ink-muted">restart</code> commands directly from the UI.
-          </li>
-          <li>
-            <strong className="text-ink">Execution Pipeline:</strong> Actions are queued in the database as pending commands. The dashboard long-polls for updates and the agent reports command results back via API.
-          </li>
-        </ul>
-      </Section>
-
-      <Section icon={ShieldCheck} title="Security & Architecture">
+      <Section icon={Container} title="Docker containers">
         <ul className="list-inside list-disc space-y-1 text-sm text-ink-muted">
           <li>
-            <strong className="text-ink">Outbound-Only Agent:</strong> The agent communicates only via outbound HTTPS requests to the dashboard. No open ports or SSH access needed on the VPS.
+            <strong className="text-ink">Per-container metrics:</strong> CPU, memory and network measured by{' '}
+            <code>docker stats</code>, with history for the raw retention window.
           </li>
           <li>
-            <strong className="text-ink">Isolated Credentials:</strong> Each registered agent has its own unique token. Compromising one agent/VPS does not affect other servers.
+            <strong className="text-ink">Logs &amp; inspect:</strong> the last log lines and a trimmed{' '}
+            <code>docker inspect</code> (environment variables are never collected), refreshed every few heartbeats.
           </li>
           <li>
-            <strong className="text-ink">Web Application:</strong> Built with Next.js 14 App Router and MongoDB (using <code className="text-ink-muted">agents</code> and <code className="text-ink-muted">metrics</code> collections).
-          </li>
-          <li>
-            <strong className="text-ink">Admin Model:</strong> First registered account is granted the admin role. Registration is disabled afterwards. Sessions are HttpOnly cookies signed with HS256 (JWT), and passwords are encrypted with bcrypt.
+            <strong className="text-ink">Alerts:</strong> unhealthy, restarting, or exited with a non-zero code.
           </li>
         </ul>
       </Section>
 
-      <Section icon={Users} title="Administration & Alerts">
+      <Section icon={Settings} title="Remote control (opt-in)">
+        <p className="text-sm text-ink-muted">
+          Start, stop or restart systemd services and Docker containers, and update the agent, from the dashboard.
+          It is off unless the server was installed with <strong className="text-ink">Allow remote control</strong> or{' '}
+          <code>ALLOW_REMOTE_COMMANDS=1</code> is set in <code>agent.conf</code> (restart the agent afterwards).
+        </p>
+        <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-ink-muted">
+          <li>Commands are queued and picked up with the next heartbeat; unclaimed ones expire after 2 minutes.</li>
+          <li>Only start / stop / restart / update are accepted, names are validated on both sides, and the agent
+            refuses to control itself.</li>
+          <li>Every command is recorded in the audit log with the user who sent it.</li>
+        </ul>
+      </Section>
+
+      <Section icon={Siren} title="Incidents &amp; alerts">
         <ul className="list-inside list-disc space-y-1 text-sm text-ink-muted">
           <li>
-            <strong className="text-ink">User Management:</strong> Administrators can view registered users, check their connected VPS counts, or delete accounts (which cascades and deletes all associated servers and metrics).
+            Rules: CPU, RAM, disk per mount point, temperature, server offline, failed service, container problem,
+            domain down and SSL expiry. Thresholds are global with optional per-server overrides.
           </li>
           <li>
-            <strong className="text-ink">Telegram Overload Alerts:</strong> Configure thresholds for CPU, RAM, and Disk `/` usage. When exceeded, the dashboard automatically posts alert messages.
+            An incident opens when a rule triggers and closes by itself when the value is back to normal, with a
+            &quot;resolved&quot; notification. Metrics need to drop a few points below the limit to resolve, CPU needs
+            two high samples in a row, and a problem that returns within the cooldown reopens silently.
+          </li>
+          <li>Channels: Telegram and a webhook (Slack, Discord, Mattermost or your own JSON receiver).</li>
+          <li>Offline detection and domain checks run in the background, no open browser needed.</li>
+        </ul>
+      </Section>
+
+      <Section icon={ShieldCheck} title="Security &amp; architecture">
+        <ul className="list-inside list-disc space-y-1 text-sm text-ink-muted">
+          <li>
+            <strong className="text-ink">Outbound-only agent:</strong> the agent only makes HTTPS requests to the
+            dashboard; no inbound port or SSH access is needed.
           </li>
           <li>
-            <strong className="text-ink">Alert Validation:</strong> Settings page includes a test button to trigger a validation message to your configured Telegram channel instantly before saving.
+            <strong className="text-ink">Credentials:</strong> servers enroll with your rotatable enrollment token and
+            then use their own agent token, which can also be rotated from the server page.
           </li>
+          <li>
+            <strong className="text-ink">Accounts:</strong> the first account (from setup) is the admin; public sign-up
+            is off unless enabled. Sessions are HttpOnly cookies; changing a password or role signs out every device.
+          </li>
+          <li>
+            <strong className="text-ink">Retention:</strong> raw metrics are kept for a few days, hourly averages for
+            months, resolved incidents for 180 days.
+          </li>
+        </ul>
+      </Section>
+
+      <Section icon={Users} title="Administration">
+        <ul className="list-inside list-disc space-y-1 text-sm text-ink-muted">
+          <li>Admins create accounts, change roles, reset passwords and delete users (with all of their servers).</li>
+          <li>The audit log records security-relevant actions: deletes, role changes, token rotations and
+            remote commands.</li>
         </ul>
       </Section>
 
       <Section icon={Code2} title="API endpoints">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
           <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-soft">Agent & Installation</h3>
-            <Endpoint
-              method="GET"
-              path="/api/install"
-              desc="Returns the install/registration bash script."
-            />
-            <Endpoint
-              method="POST"
-              path="/api/agents/register"
-              desc="Agent auto-registration. Generates and returns agentId + token."
-            />
-            <Endpoint
-              method="POST"
-              path="/api/agents/heartbeat"
-              desc="Agent reports metrics periodically. Requires agent token."
-            />
-            <Endpoint
-              method="POST"
-              path="/api/agents/command-status"
-              desc="Agent updates command execution status. Requires agent token."
-            />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-soft">Agent &amp; installation</h3>
+            <Endpoint method="GET" path="/api/install?token=" desc="Installer script (enrollment token)." />
+            <Endpoint method="GET" path="/api/agent/script" desc="Agent script for install and self-update." />
+            <Endpoint method="POST" path="/api/agents/register" desc="Registration with the enrollment token." />
+            <Endpoint method="POST" path="/api/agents/heartbeat" desc="Metrics; the reply may carry a command or a new token." />
+            <Endpoint method="POST" path="/api/agents/command-status" desc="Result of a remote command." />
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-soft">Web UI & Management</h3>
-            <Endpoint
-              method="GET"
-              path="/api/agents"
-              desc="List all agents connected to the current user."
-            />
-            <Endpoint
-              method="GET"
-              path="/api/agents/:id/metrics"
-              desc="Fetch time-series metrics (CPU, memory, net, disk) for charts."
-            />
-            <Endpoint
-              method="GET"
-              path="/api/agents/:id/services"
-              desc="List systemd services on the VPS."
-            />
-            <Endpoint
-              method="POST"
-              path="/api/agents/:id/services"
-              desc="Trigger service control actions (start/stop/restart)."
-            />
-            <Endpoint
-              method="GET"
-              path="/api/containers"
-              desc="List all containers & aggregate metrics from active agents."
-            />
-            <Endpoint
-              method="GET"
-              path="/api/containers/detail"
-              desc="Get detailed container config and live logs."
-            />
-            <Endpoint
-              method="GET"
-              path="/api/settings/alerts"
-              desc="Retrieve current Telegram alert configurations."
-            />
-            <Endpoint
-              method="PUT"
-              path="/api/settings/alerts"
-              desc="Update thresholds and Telegram bot settings."
-            />
-            <Endpoint
-              method="POST"
-              path="/api/settings/alerts/test"
-              desc="Test Telegram notifications with current settings."
-            />
-            <Endpoint
-              method="GET"
-              path="/api/admin/users"
-              desc="List all registered users (Admin only)."
-            />
-            <Endpoint
-              method="DELETE"
-              path="/api/admin/users/:userId"
-              desc="Delete user and all their agents/metrics (Admin only)."
-            />
+            <h3 className="text-xs font-bold uppercase tracking-wider text-ink-soft">Web UI &amp; management</h3>
+            <Endpoint method="GET" path="/api/agents" desc="Your servers with their latest metrics." />
+            <Endpoint method="GET" path="/api/agents/:id/metrics?range=" desc="Host metrics from 1h to 90d." />
+            <Endpoint method="GET" path="/api/agents/:id/containers/metrics" desc="Per-container history." />
+            <Endpoint method="POST" path="/api/agents/:id/commands" desc="Queue start/stop/restart/update." />
+            <Endpoint method="POST" path="/api/agents/:id/rotate-token" desc="Issue a new agent token." />
+            <Endpoint method="GET" path="/api/incidents" desc="Open and resolved incidents." />
+            <Endpoint method="PUT" path="/api/settings/alerts" desc="Channels and alert rules." />
+            <Endpoint method="POST" path="/api/settings/alerts/test" desc="Send a test notification." />
+            <Endpoint method="GET" path="/api/admin/users" desc="List users (admin)." />
+            <Endpoint method="PATCH" path="/api/admin/users/:userId" desc="Change role or reset password (admin)." />
+            <Endpoint method="GET" path="/api/admin/audit" desc="Audit log (admin)." />
           </div>
         </div>
       </Section>

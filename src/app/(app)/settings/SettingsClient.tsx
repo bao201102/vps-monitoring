@@ -42,6 +42,11 @@ type AlertSettingsResponse = {
   botTokenConfigured: boolean;
   telegramChatId: string;
   telegramTopicId: string;
+  webhookUrl: string;
+  alertServiceEnabled: boolean;
+  alertContainerEnabled: boolean;
+  alertDomainEnabled: boolean;
+  alertSslDays: number;
   alertCpuPercent: number;
   alertCpuEnabled: boolean;
   alertRamPercent: number;
@@ -115,6 +120,7 @@ export function SettingsClient({
   const [botToken, setBotToken] = useState('');
   const [clearBotToken, setClearBotToken] = useState(false);
   const [cooldown, setCooldown] = useState('300');
+  const [webhookUrl, setWebhookUrl] = useState('');
 
   // Global triggers states
   const [cpu, setCpu] = useState('85');
@@ -126,6 +132,10 @@ export function SettingsClient({
   const [temp, setTemp] = useState('80');
   const [tempEnabled, setTempEnabled] = useState(false);
   const [offlineEnabled, setOfflineEnabled] = useState(true);
+  const [serviceEnabled, setServiceEnabled] = useState(true);
+  const [containerEnabled, setContainerEnabled] = useState(true);
+  const [domainEnabled, setDomainEnabled] = useState(true);
+  const [sslDays, setSslDays] = useState('14');
 
   // Expanded server overrides state
   const [expandedAgentId, setExpandedAgentId] = useState<string | null>(null);
@@ -158,6 +168,11 @@ export function SettingsClient({
     setTemp(String(alertData.alertTempLimit ?? 80));
     setTempEnabled(Boolean(alertData.alertTempEnabled));
     setOfflineEnabled(alertData.alertOfflineEnabled !== false);
+    setServiceEnabled(alertData.alertServiceEnabled !== false);
+    setContainerEnabled(alertData.alertContainerEnabled !== false);
+    setDomainEnabled(alertData.alertDomainEnabled !== false);
+    setSslDays(String(alertData.alertSslDays ?? 14));
+    setWebhookUrl(alertData.webhookUrl || '');
     setCooldown(String(alertData.telegramCooldownSeconds));
     setAlertsHydrated(true);
   }, [alertData, alertsHydrated]);
@@ -212,6 +227,10 @@ export function SettingsClient({
     const nDisk = Math.round(Number(disk));
     const nTemp = Math.round(Number(temp));
     const nCd = Math.round(Number(cooldown));
+    const nSsl = Math.round(Number(sslDays));
+    if (!Number.isFinite(nSsl) || nSsl < 1 || nSsl > 90) {
+      return toast.error('SSL warning: enter a value between 1 and 90 days.');
+    }
     
     if (!Number.isFinite(nCpu) || nCpu < 1 || nCpu > 100) {
       return toast.error('CPU: enter a value between 1 and 100.');
@@ -241,6 +260,11 @@ export function SettingsClient({
       alertTempLimit: nTemp,
       alertTempEnabled: tempEnabled,
       alertOfflineEnabled: offlineEnabled,
+      alertServiceEnabled: serviceEnabled,
+      alertContainerEnabled: containerEnabled,
+      alertDomainEnabled: domainEnabled,
+      alertSslDays: nSsl,
+      webhookUrl: webhookUrl.trim(),
       telegramCooldownSeconds: nCd,
     };
     const trimmed = botToken.trim();
@@ -270,10 +294,15 @@ export function SettingsClient({
     setTemp(String(out.alertTempLimit ?? 80));
     setTempEnabled(Boolean(out.alertTempEnabled));
     setOfflineEnabled(out.alertOfflineEnabled !== false);
+    setServiceEnabled(out.alertServiceEnabled !== false);
+    setContainerEnabled(out.alertContainerEnabled !== false);
+    setDomainEnabled(out.alertDomainEnabled !== false);
+    setSslDays(String(out.alertSslDays ?? 14));
+    setWebhookUrl(out.webhookUrl || '');
     setCooldown(String(out.telegramCooldownSeconds));
     setBotToken('');
     setClearBotToken(false);
-    toast.success('Telegram alert settings saved');
+    toast.success('Alert settings saved');
   };
 
   const saveAgentAlertOverrides = async (agentId: string) => {
@@ -320,11 +349,12 @@ export function SettingsClient({
     const out = await res.json().catch(() => ({}));
     setTesting(false);
     if (!res.ok) return toast.error(out.error ?? 'Test message failed');
-    toast.success('Test message sent — check your Telegram');
+    toast.success('Test message sent — check your channels');
   };
 
   const configured =
-    alertData?.botTokenConfigured && (alertData.telegramChatId?.trim() ?? '').length > 0;
+    (alertData?.botTokenConfigured && (alertData.telegramChatId?.trim() ?? '').length > 0) ||
+    Boolean(alertData?.webhookUrl);
 
   return (
     <div className="space-y-6">
@@ -529,7 +559,22 @@ export function SettingsClient({
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="label">Alert Cooldown (seconds per server)</label>
+                      <label className="label">Webhook URL (Optional)</label>
+                      <input
+                        className="input font-mono text-xs"
+                        value={webhookUrl}
+                        onChange={(e) => setWebhookUrl(e.target.value)}
+                        placeholder="https://discord.com/api/webhooks/… or https://hooks.slack.com/…"
+                        autoComplete="off"
+                      />
+                      <p className="mt-1 text-xs text-ink-soft">
+                        Receives a JSON POST with <code className="font-mono">text</code> (Slack, Mattermost),{' '}
+                        <code className="font-mono">content</code> (Discord) and a structured{' '}
+                        <code className="font-mono">event</code>. Private / internal addresses are blocked.
+                      </p>
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="label">Re-alert Cooldown (seconds)</label>
                       <input
                         className="input text-xs"
                         type="number"
@@ -539,7 +584,7 @@ export function SettingsClient({
                         onChange={(e) => setCooldown(e.target.value)}
                       />
                       <p className="mt-1 text-xs text-ink-soft">
-                        Minimum 60 seconds (prevents alert spamming during prolonged usage spikes).
+                        A problem that comes back within this window reopens its incident silently instead of alerting again.
                       </p>
                     </div>
                   </div>
@@ -635,7 +680,7 @@ export function SettingsClient({
                           disabled={!diskEnabled}
                           className="w-full h-1.5 bg-bg-muted rounded-lg appearance-none cursor-pointer accent-accent disabled:opacity-30"
                         />
-                        <p className="text-xs text-ink-soft">Triggers when root disk (/) space exceeds limit.</p>
+                        <p className="text-xs text-ink-soft">Triggers when any mounted filesystem exceeds the limit.</p>
                       </div>
                     </div>
 
@@ -662,6 +707,50 @@ export function SettingsClient({
                       </div>
                     </div>
 
+                    {/* Service / container / domain rules */}
+                    <div className="card p-4 bg-bg-card/30 flex items-start gap-4">
+                      <div className="pt-0.5">
+                        <ToggleSwitch checked={serviceEnabled} onChange={setServiceEnabled} />
+                      </div>
+                      <div className="flex-grow space-y-0.5">
+                        <h4 className="text-xs font-bold text-ink">Failed Service Alert</h4>
+                        <p className="text-xs text-ink-soft">Triggers when a systemd unit enters the failed state.</p>
+                      </div>
+                    </div>
+                    <div className="card p-4 bg-bg-card/30 flex items-start gap-4">
+                      <div className="pt-0.5">
+                        <ToggleSwitch checked={containerEnabled} onChange={setContainerEnabled} />
+                      </div>
+                      <div className="flex-grow space-y-0.5">
+                        <h4 className="text-xs font-bold text-ink">Container Problem Alert</h4>
+                        <p className="text-xs text-ink-soft">Unhealthy, restarting, or exited with a non-zero code.</p>
+                      </div>
+                    </div>
+                    <div className="card p-4 bg-bg-card/30 flex items-start gap-4 md:col-span-2">
+                      <div className="pt-0.5">
+                        <ToggleSwitch checked={domainEnabled} onChange={setDomainEnabled} />
+                      </div>
+                      <div className="flex-grow space-y-1.5">
+                        <div className="flex justify-between items-center">
+                          <h4 className="text-xs font-bold text-ink">Domain &amp; SSL Alert</h4>
+                          <span className="text-xs font-semibold text-accent">{sslDays} days</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="1"
+                          max="60"
+                          value={sslDays}
+                          onChange={(e) => setSslDays(e.target.value)}
+                          disabled={!domainEnabled}
+                          className="w-full h-1.5 bg-bg-muted rounded-lg appearance-none cursor-pointer accent-accent disabled:opacity-30"
+                        />
+                        <p className="text-xs text-ink-soft">
+                          Domains found in nginx / apache / caddy are checked every 10 minutes. Alerts when a domain is
+                          down twice in a row or its certificate expires within this many days.
+                        </p>
+                      </div>
+                    </div>
+
                     {/* Server offline alert rule */}
                     <div className="card p-4 bg-bg-card/30 flex items-start gap-4 md:col-span-2">
                       <div className="pt-0.5">
@@ -670,7 +759,7 @@ export function SettingsClient({
                       <div className="flex-grow space-y-0.5">
                         <h4 className="text-xs font-bold text-ink">Heartbeat Timeout (Offline) Alert</h4>
                         <p className="text-xs text-ink-soft">
-                          Triggers immediately when the system goes offline or shuts down gracefully.
+                          Triggers when no heartbeat arrives for {offlineAfterSeconds}s, or the agent reports a shutdown.
                         </p>
                       </div>
                     </div>

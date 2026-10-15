@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { connectDB } from '@/lib/db';
+import { env } from '@/lib/env';
 import { User } from '@/lib/models/User';
 import { hashPassword, signSession, setSessionCookie } from '@/lib/auth';
+import { querySetupComplete } from '@/lib/setup';
+import { limitByIp } from '@/lib/http';
 
 export const runtime = 'nodejs';
 
@@ -12,6 +15,12 @@ const schema = z.object({
 });
 
 export async function POST(req: Request) {
+  if (!env.ALLOW_SIGNUP) {
+    return NextResponse.json({ error: 'Public sign-up is disabled. Ask an admin for an account.' }, { status: 403 });
+  }
+  const limited = limitByIp(req, 'signup', 5, 60 * 60_000);
+  if (limited) return limited;
+
   const body = await req.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
@@ -21,29 +30,24 @@ export async function POST(req: Request) {
     );
   }
 
+  // The first account must go through /setup, which creates the admin.
+  if (!(await querySetupComplete())) {
+    return NextResponse.json({ error: 'Run the initial setup first.' }, { status: 400 });
+  }
+
   await connectDB();
   const existingUser = await User.findOne({ username: parsed.data.username.toLowerCase() });
   if (existingUser) {
     return NextResponse.json({ error: 'Username already taken' }, { status: 400 });
   }
 
-  // First user created will be the admin, subsequent ones will be regular users
-  const count = await User.countDocuments({});
-  const role = count === 0 ? 'admin' : 'user';
-
-  const passwordHash = await hashPassword(parsed.data.password);
   const user = await User.create({
     username: parsed.data.username.toLowerCase(),
-    passwordHash,
-    role,
+    passwordHash: await hashPassword(parsed.data.password),
+    role: 'user',
   });
 
-  const token = await signSession({
-    sub: user._id.toString(),
-    username: user.username,
-    role,
-  });
-  await setSessionCookie(token);
+  await setSessionCookie(await signSession(user));
 
   return NextResponse.json({ ok: true, username: user.username });
 }

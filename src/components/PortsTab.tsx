@@ -25,11 +25,42 @@ export interface VpsPortData {
   updatedAt?: string;
 }
 
+export interface DomainCheckData {
+  ok: boolean;
+  httpStatus: number | null;
+  responseMs: number | null;
+  error: string | null;
+  sslValidTo: string | null;
+  sslIssuer: string | null;
+  checkedAt: string;
+}
+
 export interface VpsDomainData {
   domain: string;
   type: string;
   target?: string;
   updatedAt?: string;
+  check?: DomainCheckData | null;
+}
+
+function DomainCheckLine({ check }: { check?: DomainCheckData | null }) {
+  if (!check) return <div className="mt-1 font-sans text-[10px] font-normal text-ink-soft">not checked yet</div>;
+  const days = check.sslValidTo
+    ? Math.floor((new Date(check.sslValidTo).getTime() - Date.now()) / 86_400_000)
+    : null;
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-2 font-sans text-[10px] font-normal" title={`Checked ${new Date(check.checkedAt).toLocaleString()}`}>
+      <span className={check.ok ? 'text-success' : 'text-danger'}>
+        ● {check.ok ? `HTTP ${check.httpStatus}` : check.error ?? `HTTP ${check.httpStatus}`}
+      </span>
+      {check.responseMs != null && <span className="text-ink-soft">{check.responseMs} ms</span>}
+      {days != null && (
+        <span className={days < 14 ? 'text-warning' : 'text-ink-soft'} title={check.sslIssuer ?? undefined}>
+          SSL {days < 0 ? 'expired' : `${days}d left`}
+        </span>
+      )}
+    </div>
+  );
 }
 
 interface PortsTabProps {
@@ -208,6 +239,7 @@ export function PortsTab({ agentId, agentLabel, agentHostname }: PortsTabProps) 
                     <tr key={domain.domain + idx} className="hover:bg-bg-soft/50 transition-colors">
                       <td className="py-3 px-4 font-mono font-medium text-ink break-all text-xs">
                         {domain.domain}
+                        <DomainCheckLine check={domain.check} />
                       </td>
                       <td className="py-3 px-4 font-mono">
                         {domain.target && domain.target !== 'static' ? (
