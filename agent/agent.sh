@@ -64,11 +64,20 @@ get_disk() {
   df -B1 --output=used,size / 2>/dev/null | tail -1
 }
 
-# All real filesystems, one entry per device (shortest mount point wins for bind mounts).
+# "/" (always, whatever its fs type — overlay/simfs on containers and OpenVZ) plus every
+# real filesystem; bind-mounted files are skipped and each device is listed once
+# (shortest mount point wins).
 read_disks() {
-  df -B1 -P -T \
-    -x tmpfs -x devtmpfs -x overlay -x squashfs -x nsfs -x efivarfs -x fuse.lxcfs -x ramfs -x autofs 2>/dev/null \
-    | awk 'NR > 1 && $3 > 0 { printf "%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $7 }' \
+  {
+    df -B1 -P -T / 2>/dev/null | awk 'NR > 1'
+    df -B1 -P -T \
+      -x tmpfs -x devtmpfs -x overlay -x squashfs -x nsfs -x efivarfs -x fuse.lxcfs -x ramfs -x autofs 2>/dev/null \
+      | awk 'NR > 1'
+  } \
+    | awk '$3 > 0 { printf "%s\t%s\t%s\t%s\t%s\n", $1, $2, $3, $4, $7 }' \
+    | while IFS=$'\t' read -r dev fs size used mnt; do
+        [ -d "$mnt" ] && printf '%s\t%s\t%s\t%s\t%s\n' "$dev" "$fs" "$size" "$used" "$mnt"
+      done \
     | jq -R -s '
         split("\n") | map(select(length > 0) | split("\t")
           | {device: .[0], fsType: .[1], totalBytes: (.[2] | tonumber), usedBytes: (.[3] | tonumber), mount: .[4]})

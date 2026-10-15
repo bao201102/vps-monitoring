@@ -154,7 +154,7 @@ export function ServicesTab({ agentId, remoteCommands = false, agentLabel, agent
             <span className="text-border">|</span>
             <span className="text-danger font-semibold">Failed: {failedCount}</span>
             <span className="text-border">|</span>
-            <span>Updated every 10 minutes.</span>
+            <span>Updated with every heartbeat.</span>
           </div>
         </div>
         <div className="relative max-w-sm shrink-0">
