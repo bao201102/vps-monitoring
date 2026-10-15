@@ -16,41 +16,20 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const name = searchParams.get('name');
   const agentId = searchParams.get('agentId');
-  const system = searchParams.get('system'); // fallback if agentId is missing
 
-  if (!name) {
-    return NextResponse.json({ error: 'Missing name parameter' }, { status: 400 });
+  if (!name || !agentId) {
+    return NextResponse.json({ error: 'Missing name or agentId parameter' }, { status: 400 });
   }
 
   await connectDB();
 
-  let container = null;
-
-  if (agentId) {
-    // Find container by exact agentId and name
-    container = await DockerContainer.findOne({ agentId, name }).lean();
-  } else if (system) {
-    // Fallback: Find matching agent by label or hostname, then container
-    const agent = await Agent.findOne({
-      userId: session.sub,
-      $or: [
-        { label: system },
-        { hostname: system }
-      ]
-    }).lean();
-
-    if (agent) {
-      container = await DockerContainer.findOne({ agentId: agent.agentId, name }).lean();
-    }
+  // Ownership check: the container must belong to one of the caller's agents.
+  const owns = await Agent.exists({ agentId, userId: session.sub });
+  if (!owns) {
+    return NextResponse.json({ error: 'Container not found' }, { status: 404 });
   }
 
-  // If still not found, try finding any container with that name belonging to one of the user's agents
-  if (!container) {
-    const agents = await Agent.find({ userId: session.sub }).lean();
-    const agentIds = agents.map((a) => a.agentId);
-    container = await DockerContainer.findOne({ agentId: { $in: agentIds }, name }).lean();
-  }
-
+  const container = await DockerContainer.findOne({ agentId, name }).lean();
   if (!container) {
     return NextResponse.json({ error: 'Container not found' }, { status: 404 });
   }
@@ -58,6 +37,6 @@ export async function GET(req: Request) {
   return NextResponse.json({
     name: container.name,
     logs: container.logs,
-    details: container.details
+    details: container.details,
   });
 }

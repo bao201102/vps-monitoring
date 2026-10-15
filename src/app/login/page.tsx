@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { isSetupComplete } from '@/lib/setup';
+import { env } from '@/lib/env';
 import { LoginForm } from './LoginForm';
 import { Logo } from '@/components/Logo';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -35,12 +36,14 @@ export default async function LoginPage() {
           </div>
           <LoginForm />
 
-          <p className="mt-6 text-center text-xs text-ink-soft">
-            Don&apos;t have an account?{' '}
-            <Link href="/register" className="text-accent hover:underline font-semibold">
-              Sign up
-            </Link>
-          </p>
+          {env.ALLOW_SIGNUP && (
+            <p className="mt-6 text-center text-xs text-ink-soft">
+              Don&apos;t have an account?{' '}
+              <Link href="/register" className="text-accent hover:underline font-semibold">
+                Sign up
+              </Link>
+            </p>
+          )}
         </div>
 
         <div className="flex items-center gap-2 text-xs text-ink-soft">

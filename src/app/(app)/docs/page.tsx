@@ -1,15 +1,19 @@
 import Link from 'next/link';
 import { ArrowLeft, Boxes, Code2, ShieldCheck, Terminal, Container, Settings, Users } from 'lucide-react';
 import { env } from '@/lib/env';
+import { redirect } from 'next/navigation';
 import { getSessionFromCookies } from '@/lib/auth';
+import { getOrCreateEnrollToken } from '@/lib/enroll';
 import { InstallCommand } from './InstallCommand';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DocsPage() {
   const session = await getSessionFromCookies();
-  const userId = session?.sub ?? '';
-  const cmd = `curl -fsSL "${env.APP_URL.replace(/\/$/, '')}/api/install?interval=15&userId=${userId}" | sudo bash`;
+  if (!session) redirect('/login');
+  const userId = session.sub;
+  const enrollToken = await getOrCreateEnrollToken(userId);
+  const cmd = `curl -fsSL "${env.APP_URL.replace(/\/$/, '')}/api/install?interval=15&token=${enrollToken}" | sudo bash`;
   return (
     <div className="space-y-6">
       <div>

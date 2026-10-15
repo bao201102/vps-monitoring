@@ -2,12 +2,25 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, Copy, Terminal, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowLeft, Check, Copy, Terminal, ShieldCheck, Zap, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
-export function AddServerClient({ appUrl, userId }: { appUrl: string; userId: string }) {
+export function AddServerClient({
+  appUrl,
+  userId,
+  enrollToken: initialToken,
+}: {
+  appUrl: string;
+  userId: string;
+  enrollToken: string;
+}) {
   const [interval, setInterval] = useState(15);
-  const installUrl = `${appUrl.replace(/\/$/, '')}/api/install?interval=${interval}&userId=${userId}`;
+  const [allowCommands, setAllowCommands] = useState(false);
+  const [enrollToken, setEnrollToken] = useState(initialToken);
+  const [rotating, setRotating] = useState(false);
+  const installUrl = `${appUrl.replace(/\/$/, '')}/api/install?interval=${interval}&token=${enrollToken}${
+    allowCommands ? '&commands=1' : ''
+  }`;
   const command = `curl -fsSL "${installUrl}" | sudo bash`;
   const [copied, setCopied] = useState(false);
 
@@ -16,6 +29,25 @@ export function AddServerClient({ appUrl, userId }: { appUrl: string; userId: st
     setCopied(true);
     toast.success('Copied to clipboard');
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const rotate = async () => {
+    if (
+      !confirm(
+        'Generate a new enrollment token? Install commands copied earlier will stop working. Installed agents are not affected.'
+      )
+    )
+      return;
+    setRotating(true);
+    const res = await fetch('/api/settings/enroll-token', { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    setRotating(false);
+    if (!res.ok || !data.enrollToken) {
+      toast.error(data.error ?? 'Failed to rotate token');
+      return;
+    }
+    setEnrollToken(data.enrollToken);
+    toast.success('New enrollment token generated');
   };
 
   return (
@@ -42,7 +74,8 @@ export function AddServerClient({ appUrl, userId }: { appUrl: string; userId: st
           <span className="font-semibold text-ink">Install command</span>
         </div>
         <p className="mt-1 text-xs text-ink-soft">
-          SSH into your VPS as root (or a user with sudo), then paste this:
+          SSH into your VPS as root (or a user with sudo), then paste this. The command contains your
+          enrollment token — treat it like a password.
         </p>
 
         <div className="mt-4 overflow-hidden rounded-xl border border-border terminal-block">
@@ -74,6 +107,30 @@ export function AddServerClient({ appUrl, userId }: { appUrl: string; userId: st
             />
             <p className="mt-2 text-xs text-ink-soft">
               How often the agent posts metrics. 15s is a balanced default.
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-bg-soft/50 p-4">
+            <label className="flex items-center gap-2 text-sm font-medium text-ink">
+              <input
+                type="checkbox"
+                checked={allowCommands}
+                onChange={(e) => setAllowCommands(e.target.checked)}
+              />
+              Allow remote control
+            </label>
+            <p className="mt-2 text-xs text-ink-soft">
+              Lets this dashboard start/stop/restart services and containers and update the agent on
+              this VPS. Off by default — the agent runs as root.
+            </p>
+          </div>
+          <div className="rounded-xl border border-border bg-bg-soft/50 p-4">
+            <label className="label">Enrollment token</label>
+            <button onClick={rotate} disabled={rotating} className="btn-secondary w-full">
+              <RefreshCw className={`h-4 w-4 ${rotating ? 'animate-spin' : ''}`} />
+              Rotate token
+            </button>
+            <p className="mt-2 text-xs text-ink-soft">
+              Invalidates install commands shared earlier. Running agents keep working.
             </p>
           </div>
           <div className="rounded-xl border border-border bg-bg-soft/50 p-4">

@@ -30,9 +30,6 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
   if (container.agentId) {
     queryParams.set('agentId', container.agentId);
   }
-  if (container.system) {
-    queryParams.set('system', container.system);
-  }
 
   const { data, error, isLoading, mutate } = useSWR<{ logs: string[]; details: any; error?: string }>(
     `/api/containers/detail?${queryParams.toString()}`,

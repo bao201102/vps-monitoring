@@ -15,7 +15,9 @@ set -euo pipefail
 
 SERVER_URL="__SERVER_URL__"
 USER_ID="__USER_ID__"
+ENROLL_TOKEN="__ENROLL_TOKEN__"
 INTERVAL="__INTERVAL__"
+ALLOW_REMOTE_COMMANDS="__ALLOW_COMMANDS__"
 INSTALL_DIR="/opt/vps-monitor-agent-$USER_ID"
 CONFIG_FILE="$INSTALL_DIR/agent.conf"
 AGENT_SCRIPT="$INSTALL_DIR/agent.sh"
@@ -82,8 +84,9 @@ mkdir -p "$INSTALL_DIR"
 
 if [ -f "$CONFIG_FILE" ]; then
   log "Existing config detected — re-registering with same agentId."
+  # Only reuse the agent id; everything else comes from this fresh install command.
   # shellcheck disable=SC1090
-  . "$CONFIG_FILE"
+  AGENT_ID="$( . "$CONFIG_FILE" >/dev/null 2>&1; printf '%s' "${AGENT_ID:-}" )"
 fi
 
 if [ -z "${AGENT_ID:-}" ]; then
@@ -95,7 +98,7 @@ log "Registering with $SERVER_URL …"
 
 REG_PAYLOAD=$(jq -n \
   --arg agentId "$AGENT_ID" \
-  --arg userId "$USER_ID" \
+  --arg enrollToken "$ENROLL_TOKEN" \
   --arg hostname "$HOSTNAME_VAL" \
   --arg os "$OS_ID" \
   --arg osVersion "$OS_VER" \
@@ -107,9 +110,9 @@ REG_PAYLOAD=$(jq -n \
   --argjson totalDiskBytes "${DISK_TOTAL_BYTES:-0}" \
   --arg publicIp "${PUBLIC_IP:-}" \
   --arg privateIp "${PRIVATE_IP:-}" \
-  '{agentId:$agentId, userId:$userId, hostname:$hostname, os:$os, osVersion:$osVersion, kernel:$kernel, arch:$arch, cpuModel:$cpuModel, cpuCores:$cpuCores, totalMemoryBytes:$totalMemoryBytes, totalDiskBytes:$totalDiskBytes, publicIp:$publicIp, privateIp:$privateIp}')
+  '{agentId:$agentId, enrollToken:$enrollToken, hostname:$hostname, os:$os, osVersion:$osVersion, kernel:$kernel, arch:$arch, cpuModel:$cpuModel, cpuCores:$cpuCores, totalMemoryBytes:$totalMemoryBytes, totalDiskBytes:$totalDiskBytes, publicIp:$publicIp, privateIp:$privateIp}')
 
-REG_RESPONSE="$(curl -fsS -X POST "$SERVER_URL/api/agents/register" \
+REG_RESPONSE="$(curl -sS --max-time 20 -X POST "$SERVER_URL/api/agents/register" \
   -H 'Content-Type: application/json' \
   -d "$REG_PAYLOAD" || true)"
 
@@ -136,6 +139,8 @@ AGENT_ID="$AGENT_ID"
 AGENT_TOKEN="$AGENT_TOKEN"
 INTERVAL="$INTERVAL"
 LOGS_TAIL="500"
+# Set to 1 to let the dashboard start/stop/restart services on this machine.
+ALLOW_REMOTE_COMMANDS="$ALLOW_REMOTE_COMMANDS"
 EOF
 chmod 600 "$CONFIG_FILE"
 
@@ -314,7 +319,7 @@ read_docker_containers() {
     logs_json=$(timeout 3 docker logs --tail "$LOGS_TAIL" "$name" 2>/dev/null | jq -R . | jq -s . || echo "[]")
 
     local inspect_json="{}"
-    inspect_json=$(timeout 3 docker inspect --format '{{json .}}' "$name" 2>/dev/null | jq '{AppArmorProfile, Args, Config, State, NetworkSettings}' 2>/dev/null || echo "{}")
+    inspect_json=$(timeout 3 docker inspect --format '{{json .}}' "$name" 2>/dev/null | jq '{Id, AppArmorProfile, Args, Config: ((.Config // {}) | del(.Env)), State, NetworkSettings}' 2>/dev/null || echo "{}")
 
     # Use temp files for large JSON blobs (logs, details, accumulated payload)
     # to avoid "Argument list too long" (E2BIG) when passing via --argjson
@@ -864,7 +869,11 @@ while true; do
 
       if [ -n "$CMD_ID" ] && [ -n "$CMD_ACTION" ] && [ -n "$CMD_SERVICE" ]; then
         CMD_STATUS="done"
-        if [ "$CMD_ACTION" = "start" ]; then
+        if [ "${ALLOW_REMOTE_COMMANDS:-0}" != "1" ]; then
+          CMD_STATUS="failed"
+        elif ! [[ "$CMD_SERVICE" =~ ^[A-Za-z0-9@._:-]+$ ]]; then
+          CMD_STATUS="failed"
+        elif [ "$CMD_ACTION" = "start" ]; then
           systemctl start "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
         elif [ "$CMD_ACTION" = "stop" ]; then
           systemctl stop "$CMD_SERVICE" >/dev/null 2>&1 || CMD_STATUS="failed"
