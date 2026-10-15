@@ -1,8 +1,18 @@
 import mongoose, { Schema, Model } from 'mongoose';
 
+export interface IDiskMount {
+  mount: string;
+  device: string;
+  fsType: string;
+  usedBytes: number;
+  totalBytes: number;
+}
+
 export interface IAgent {
   agentId: string;
   token: string;
+  /** Issued by "rotate token"; accepted until the agent switches to it. */
+  nextToken?: string | null;
   hostname: string;
   os: string;
   osVersion: string;
@@ -17,13 +27,16 @@ export interface IAgent {
   tags: string[];
   label?: string;
   lastSeenAt?: Date;
-  /** Last time a Telegram overload alert was sent (per-server cooldown). */
-  lastTelegramAlertAt?: Date;
-  /** Last offline/shutdown alert. Compared with lastSeenAt to alert once per outage. */
-  lastTelegramOfflineAlertAt?: Date;
   userId: string;
   registeredAt: Date;
-  
+  agentVersion?: string;
+  /** Whether the agent accepts remote commands (ALLOW_REMOTE_COMMANDS=1 on the VPS). */
+  remoteCommands: boolean;
+  disks: IDiskMount[];
+  /** Hashes of the last ports/domains payload, to skip rewriting unchanged lists. */
+  portsHash?: string;
+  domainsHash?: string;
+
   // Alert settings overrides (Beszel-style)
   alertsUseGlobal: boolean;
   alertCpuEnabled: boolean;
@@ -42,11 +55,23 @@ export interface IAgent {
   updatedAt: Date;
 }
 
+const DiskMountSchema = new Schema<IDiskMount>(
+  {
+    mount: String,
+    device: String,
+    fsType: String,
+    usedBytes: Number,
+    totalBytes: Number,
+  },
+  { _id: false }
+);
+
 const AgentSchema = new Schema<IAgent>(
   {
     userId: { type: Schema.Types.ObjectId as any, ref: 'User', required: true, index: true },
     agentId: { type: String, required: true, unique: true, index: true },
     token: { type: String, required: true, unique: true, index: true },
+    nextToken: { type: String, default: null },
     hostname: { type: String, default: 'unknown' },
     os: { type: String, default: 'unknown' },
     osVersion: { type: String, default: '' },
@@ -60,11 +85,14 @@ const AgentSchema = new Schema<IAgent>(
     privateIp: { type: String },
     tags: { type: [String], default: [] },
     label: { type: String },
-    lastSeenAt: { type: Date },
-    lastTelegramAlertAt: { type: Date },
-    lastTelegramOfflineAlertAt: { type: Date },
+    lastSeenAt: { type: Date, index: true },
     registeredAt: { type: Date, default: () => new Date() },
-    
+    agentVersion: { type: String },
+    remoteCommands: { type: Boolean, default: false },
+    disks: { type: [DiskMountSchema], default: [] },
+    portsHash: { type: String },
+    domainsHash: { type: String },
+
     // Per-VPS Alert override configurations
     alertsUseGlobal: { type: Boolean, default: true },
     alertCpuEnabled: { type: Boolean, default: true },

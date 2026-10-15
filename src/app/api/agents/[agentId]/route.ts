@@ -1,15 +1,12 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getUserResolvedAlertSettings } from '@/lib/user-settings';
 import { connectDB } from '@/lib/db';
 import { Agent } from '@/lib/models/Agent';
-import { Metric } from '@/lib/models/Metric';
 import { getSessionFromCookies } from '@/lib/auth';
 import { env } from '@/lib/env';
-import {
-  sendTelegramDisconnectIfNeeded,
-  shouldSendTelegramDisconnectAlert,
-} from '@/lib/telegram-alerts';
+import { deleteAgentsData } from '@/lib/maintenance';
+import { audit } from '@/lib/audit';
+import { compareVersions, latestAgentVersion } from '@/lib/agent-script';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -26,25 +23,11 @@ export async function GET(_req: Request, { params }: RouteContext) {
   const agent = await Agent.findOne({ agentId: params.agentId, userId: session.sub }).lean();
   if (!agent) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  const latest = await Metric.findOne({ agentId: params.agentId }).sort({ ts: -1 }).lean();
-
   const offlineMs = env.AGENT_OFFLINE_AFTER_SECONDS * 1000;
   const online = agent.lastSeenAt
     ? Date.now() - new Date(agent.lastSeenAt).getTime() <= offlineMs
     : false;
-
-  if (!online) {
-    const appSettings = await getUserResolvedAlertSettings(session.sub);
-    if (shouldSendTelegramDisconnectAlert(agent, appSettings)) {
-      const sent = await sendTelegramDisconnectIfNeeded(agent, appSettings, env.APP_URL, 'offline');
-      if (sent) {
-        await Agent.updateOne(
-          { agentId: agent.agentId },
-          { $set: { lastTelegramOfflineAlertAt: new Date() } }
-        );
-      }
-    }
-  }
+  const latestVersion = await latestAgentVersion();
 
   return NextResponse.json({
     agent: {
@@ -65,7 +48,13 @@ export async function GET(_req: Request, { params }: RouteContext) {
       online,
       lastSeenAt: agent.lastSeenAt,
       registeredAt: agent.registeredAt,
-      latest,
+      agentVersion: agent.agentVersion ?? null,
+      latestAgentVersion: latestVersion,
+      updateAvailable: compareVersions(agent.agentVersion ?? '0', latestVersion) < 0,
+      remoteCommands: Boolean(agent.remoteCommands),
+      tokenRotationPending: Boolean(agent.nextToken),
+      disks: agent.disks ?? [],
+      latest: agent.latest ?? null,
     },
   });
 }
@@ -101,11 +90,11 @@ export async function DELETE(_req: Request, { params }: RouteContext) {
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   await connectDB();
-  const agent = await Agent.findOne({ agentId: params.agentId, userId: session.sub });
+  const agent = await Agent.findOne({ agentId: params.agentId, userId: session.sub }).select('hostname label').lean();
   if (!agent) return NextResponse.json({ error: 'Not found' }, { status: 404 });
 
-  await Agent.deleteOne({ agentId: params.agentId });
-  await Metric.deleteMany({ agentId: params.agentId });
+  await deleteAgentsData([params.agentId]);
+  await audit(session, 'agent.delete', params.agentId, { hostname: agent.hostname, label: agent.label });
 
   return NextResponse.json({ ok: true });
 }

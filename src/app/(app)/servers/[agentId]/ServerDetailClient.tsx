@@ -461,6 +461,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
             {activeTab === 'containers' && (
               <ContainersTab
                 agentId={agent.agentId}
+                range={range}
                 metrics={metrics}
                 isGridLayout={isGridLayout}
                 agentLabel={agent.label}
@@ -539,6 +540,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
               </div>
               <ContainersTab
                 agentId={agent.agentId}
+                range={range}
                 metrics={metrics}
                 isGridLayout={isGridLayout}
                 agentLabel={agent.label}
