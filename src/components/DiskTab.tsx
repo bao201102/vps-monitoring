@@ -12,7 +12,8 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { MoreHorizontal } from 'lucide-react';
-import { formatBytes, formatBps } from '@/lib/utils';
+import { formatBytes, formatBps, percent } from '@/lib/utils';
+import { UsageBar } from './UsageBar';
 
 interface MetricPoint {
   ts: string;
@@ -22,8 +23,17 @@ interface MetricPoint {
   diskWriteBps: number;
 }
 
+export interface DiskMount {
+  mount: string;
+  device: string;
+  fsType: string;
+  usedBytes: number;
+  totalBytes: number;
+}
+
 interface DiskTabProps {
   metrics: MetricPoint[];
+  disks?: DiskMount[];
   totalDiskBytes: number;
   isGridLayout: boolean;
 }
@@ -39,7 +49,7 @@ const chartTooltipStyle = {
 const chartGridStroke = 'rgb(var(--chart-grid))';
 const chartAxisStroke = 'rgb(var(--chart-axis))';
 
-export function DiskTab({ metrics, totalDiskBytes, isGridLayout }: DiskTabProps) {
+export function DiskTab({ metrics, disks = [], totalDiskBytes, isGridLayout }: DiskTabProps) {
   // Format dates for XAxis
   const formatTime = (ts: string) => {
     try {
@@ -194,6 +204,33 @@ export function DiskTab({ metrics, totalDiskBytes, isGridLayout }: DiskTabProps)
           </ResponsiveContainer>
         </div>
       </div>
+
+      {/* Every mounted filesystem reported by the agent */}
+      {disks.length > 0 && (
+        <div className={`card p-5 ${isGridLayout ? 'md:col-span-2' : ''}`}>
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-ink">Mount points</h3>
+            <p className="text-xs text-ink-muted">Current usage of each filesystem</p>
+          </div>
+          <div className="space-y-4">
+            {disks.map((d) => {
+              const pct = percent(d.usedBytes, d.totalBytes);
+              return (
+                <div key={`${d.device}-${d.mount}`}>
+                  <UsageBar
+                    value={pct}
+                    label={d.mount}
+                    hint={`${formatBytes(d.usedBytes)} / ${formatBytes(d.totalBytes)} · ${pct.toFixed(1)}%`}
+                  />
+                  <p className="mt-1 font-mono text-[11px] text-ink-soft">
+                    {d.device} {d.fsType && <span>({d.fsType})</span>}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

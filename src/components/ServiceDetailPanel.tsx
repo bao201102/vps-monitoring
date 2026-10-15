@@ -5,12 +5,14 @@ import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import { ServiceData } from './ServicesTab';
 import { formatBytes, cn } from '@/lib/utils';
+import { CommandButtons } from './CommandButtons';
 
 interface ServiceDetailPanelProps {
   agentId: string;
   service: ServiceData;
   onClose: () => void;
   mutateServices: () => void;
+  remoteCommands: boolean;
 }
 
 interface DetailRow {
@@ -26,8 +28,11 @@ interface DetailSection {
 }
 
 export function ServiceDetailPanel({
+  agentId,
   service,
   onClose,
+  mutateServices,
+  remoteCommands,
 }: ServiceDetailPanelProps) {
   const [mounted, setMounted] = useState(false);
 
@@ -181,6 +186,17 @@ export function ServiceDetailPanel({
 
         {/* Scrollable Content */}
         <div className="p-5 flex-grow overflow-y-auto space-y-6">
+          <div className="space-y-2">
+            <h3 className="text-sm font-bold text-ink-muted px-1">Actions</h3>
+            <CommandButtons
+              agentId={agentId}
+              kind="service"
+              target={service.name}
+              remoteCommands={remoteCommands}
+              isRunning={service.state === 'Active'}
+              onDone={mutateServices}
+            />
+          </div>
           {sections.map((section, idx) => (
             <div key={idx} className="space-y-2">
               <h3 className="text-sm font-bold text-ink-muted px-1">

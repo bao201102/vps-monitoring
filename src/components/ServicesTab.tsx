@@ -51,6 +51,7 @@ export interface ServiceData {
 
 interface ServicesTabProps {
   agentId: string;
+  remoteCommands?: boolean;
   agentLabel?: string;
   agentHostname?: string;
 }
@@ -70,7 +71,7 @@ const formatUpdatedTime = (updatedStr: string) => {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabProps) {
+export function ServicesTab({ agentId, remoteCommands = false, agentLabel, agentHostname }: ServicesTabProps) {
   const { data, isLoading, mutate } = useSWR<{ services: ServiceData[] }>(
     `/api/agents/${agentId}/services`,
     fetcher,
@@ -196,7 +197,7 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
               <th className="py-3 px-4 cursor-pointer hover:text-ink transition-colors text-right" onClick={() => handleSort('cpu10m')}>
                 <span className="flex items-center gap-1.5 justify-end">
                   <Cpu className="h-4 w-4 text-ink-soft" />
-                  CPU (10m){renderSortIndicator('cpu10m')}
+                  CPU{renderSortIndicator('cpu10m')}
                 </span>
               </th>
               <th className="py-3 px-4 cursor-pointer hover:text-ink transition-colors text-right" onClick={() => handleSort('cpuPeak')}>
@@ -334,6 +335,7 @@ export function ServicesTab({ agentId, agentLabel, agentHostname }: ServicesTabP
           service={selectedService}
           onClose={() => setSelectedServiceName(null)}
           mutateServices={mutate}
+          remoteCommands={remoteCommands}
         />
       )}
     </div>

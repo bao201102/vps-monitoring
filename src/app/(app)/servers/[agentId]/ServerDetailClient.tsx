@@ -30,6 +30,9 @@ import { ContainersTab } from '@/components/ContainersTab';
 import { ServicesTab } from '@/components/ServicesTab';
 import { GpuTab } from '@/components/GpuTab';
 import { PortsTab } from '@/components/PortsTab';
+import { AgentIncidentsBanner, AgentMaintenance } from '@/components/AgentMaintenance';
+import type { DiskMount } from '@/components/DiskTab';
+import { RANGES } from '@/lib/ranges';
 
 interface AgentDetail {
   agentId: string;
@@ -49,6 +52,12 @@ interface AgentDetail {
   online: boolean;
   lastSeenAt?: string;
   registeredAt: string;
+  agentVersion: string | null;
+  latestAgentVersion: string;
+  updateAvailable: boolean;
+  remoteCommands: boolean;
+  tokenRotationPending: boolean;
+  disks: DiskMount[];
   latest: {
     cpuPercent: number;
     memUsedBytes: number;
@@ -110,12 +119,7 @@ interface MetricPoint {
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
-const RANGES = [
-  { v: '1h', label: '1 hour' },
-  { v: '6h', label: '6 hours' },
-  { v: '24h', label: '24 hours' },
-  { v: '7d', label: '7 days' },
-];
+const RANGE_OPTIONS = Object.entries(RANGES).map(([v, r]) => ({ v, label: r.label }));
 
 export function ServerDetailClient({ agentId }: { agentId: string }) {
   const router = useRouter();
@@ -250,8 +254,8 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
           {/* Details Row */}
           <div className="flex flex-wrap items-center gap-y-2 gap-x-4 text-xs text-ink-muted">
             <span className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-full bg-success animate-pulse" />
-              Up
+              <span className={`h-2 w-2 rounded-full ${agent.online ? 'bg-success animate-pulse' : 'bg-danger'}`} />
+              {agent.online ? 'Up' : 'Down'}
             </span>
             <span className="text-border">•</span>
             <span className="flex items-center gap-1">
@@ -283,6 +287,15 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
               <span className="text-ink">{formatBytes(agent.totalMemoryBytes)}</span>
             </span>
           </div>
+          <AgentMaintenance
+            agentId={agent.agentId}
+            agentVersion={agent.agentVersion}
+            latestAgentVersion={agent.latestAgentVersion}
+            updateAvailable={agent.updateAvailable}
+            remoteCommands={agent.remoteCommands}
+            tokenRotationPending={agent.tokenRotationPending}
+            onChanged={() => void mutate()}
+          />
         </div>
 
         {/* Action Buttons */}
@@ -305,6 +318,8 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
           </button>
         </div>
       </div>
+
+      <AgentIncidentsBanner agentId={agent.agentId} />
 
       {/* Tab Navigation and Controls */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-border pb-3">
@@ -350,7 +365,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
               backgroundSize: '12px',
             }}
           >
-            {RANGES.map((r) => (
+            {RANGE_OPTIONS.map((r) => (
               <option key={r.v} value={r.v}>
                 {r.label}
               </option>
@@ -454,6 +469,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
             {activeTab === 'disk' && (
               <DiskTab
                 metrics={metrics}
+                disks={agent.disks}
                 totalDiskBytes={agent.totalDiskBytes}
                 isGridLayout={isGridLayout}
               />
@@ -474,6 +490,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
             {activeTab === 'service' && (
               <ServicesTab
                 agentId={agent.agentId}
+                remoteCommands={agent.remoteCommands}
                 agentLabel={agent.label}
                 agentHostname={agent.hostname}
               />
@@ -511,6 +528,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
               </div>
               <DiskTab
                 metrics={metrics}
+                disks={agent.disks}
                 totalDiskBytes={agent.totalDiskBytes}
                 isGridLayout={isGridLayout}
               />
@@ -558,6 +576,7 @@ export function ServerDetailClient({ agentId }: { agentId: string }) {
               </div>
               <ServicesTab
                 agentId={agent.agentId}
+                remoteCommands={agent.remoteCommands}
                 agentLabel={agent.label}
                 agentHostname={agent.hostname}
               />

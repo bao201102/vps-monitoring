@@ -5,6 +5,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, RotateCw, Maximize2, Minimize2 } from 'lucide-react';
 import { ContainerData } from './ContainerTable';
+import { CommandButtons } from './CommandButtons';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -148,6 +149,20 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
 
         {/* Scrollable Drawer Content */}
         <div className="p-5 flex-grow overflow-y-auto space-y-6">
+          {container.agentId && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-bold text-ink uppercase tracking-wider">Actions</h3>
+              <CommandButtons
+                agentId={container.agentId}
+                kind="container"
+                target={container.name}
+                remoteCommands={Boolean(container.remoteCommands)}
+                isRunning={/^Up/i.test(container.status)}
+                onDone={() => void mutate()}
+              />
+            </div>
+          )}
+
           
           {/* Logs Card Section */}
           <div className="space-y-2 flex flex-col">

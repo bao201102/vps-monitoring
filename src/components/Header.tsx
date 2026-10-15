@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import useSWR from 'swr';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Search,
@@ -13,6 +14,7 @@ import {
   Users,
   BookOpen,
   Container,
+  Siren,
 } from 'lucide-react';
 import { Logo } from './Logo';
 import { ThemeToggle } from './ThemeToggle';
@@ -30,6 +32,12 @@ export function Header({ onSearchClick, username, role }: HeaderProps) {
   const [isMac, setIsMac] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const { data: openIncidents } = useSWR<{ incidents: unknown[] }>(
+    '/api/incidents?status=open&limit=100',
+    (url: string) => fetch(url).then((r) => r.json()),
+    { refreshInterval: 30000 }
+  );
+  const openCount = openIncidents?.incidents?.length ?? 0;
 
   // Detect macOS for Kbd shortcut display
   useEffect(() => {
@@ -97,6 +105,21 @@ export function Header({ onSearchClick, username, role }: HeaderProps) {
               <Users className="h-4 w-4" />
             </Link>
           )}
+
+          {/* Incidents Icon with open count */}
+          <Link
+            href="/incidents"
+            className={`relative rounded-md p-2 text-ink-soft transition-colors hover:bg-bg-muted hover:text-ink ${pathname === '/incidents' ? 'bg-bg-muted text-ink' : ''
+              }`}
+            title={openCount ? `${openCount} open incident(s)` : 'Incidents'}
+          >
+            <Siren className={`h-4 w-4 ${openCount ? 'text-danger' : ''}`} />
+            {openCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-danger px-1 text-[10px] font-bold text-white">
+                {openCount > 99 ? '99+' : openCount}
+              </span>
+            )}
+          </Link>
 
           {/* All Containers Icon */}
           <Link
