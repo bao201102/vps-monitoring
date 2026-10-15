@@ -3,7 +3,7 @@
 
 
 > Open-source, self-hosted monitoring & management dashboard for your VPS fleet.
-> Built with **Next.js 14**, **MongoDB**, and a tiny **bash agent** that installs in one line.
+> Built with **Next.js 14**, **MongoDB**, and a small **bash agent** that installs in one line.
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-green)
 ![Next.js](https://img.shields.io/badge/Next.js-14-black)
@@ -11,17 +11,17 @@
 
 ## ✨ Features
 
-- **One-line install** on any VPS (Ubuntu, Debian, CentOS, Rocky, Alma, Fedora, Arch, Alpine…)
-- **Auto-registration** — no SSH keys, no copy-pasting tokens. Just run the install command.
-- **Live metrics** every 15s: CPU, memory, swap, disk, network, load avg, uptime, processes.
-- **Docker Container Management** — Real-time resource metrics (CPU, RAM, network) for containers, container states/health, inspection details, and live logs viewing.
-- **Systemd Services Control** — View active services list, monitor CPU/memory per service, and start, stop, or restart services directly from the dashboard.
-- **Beautiful dark dashboard** with real-time charts (Recharts).
-- **Single-admin model** — no public sign-ups. The first account becomes admin.
-- **Multi-user isolation & Admin capabilities** — Supports user-isolated installations on the same VPS, and includes an admin panel to manage users and view registered agents.
-- **Self-hosted** — your metrics live in your MongoDB, not someone else's cloud.
-- **Tiny agent** — pure bash, no compiled binaries, ~5 MB RAM footprint.
-- **Telegram Alerts & Testing** — Configure thresholds for notifications and test your connection instantly with a test alert button (per-server cooldown).
+- **One-line install** on any systemd Linux (Ubuntu, Debian, CentOS, Rocky, Alma, Fedora, Arch…), authorised by a rotatable per-user **enrollment token**.
+- **Live metrics** every 15s: CPU, memory, swap, every mounted filesystem, disk I/O, network, load, temperatures, GPU, uptime.
+- **History**: raw samples for 7 days (configurable) plus hourly rollups for 90 days → 1h / 6h / 24h / 7d / 30d / 90d charts.
+- **Docker**: real per-container CPU / RAM / network with history, health, logs and inspect (environment variables are never collected).
+- **systemd services**: running, failed and stopped-but-enabled units with per-service CPU (from `CPUUsageNSec`) and memory history.
+- **Ports & domains**: listening sockets plus domains discovered in nginx / apache / caddy, each probed every 10 minutes for HTTP status and certificate expiry.
+- **Incidents & alerts**: an incident opens when a rule triggers and resolves automatically (with a "resolved" message). Rules: CPU, RAM, disk per mount, temperature, server offline, failed service, unhealthy / crashing container, domain down, SSL expiry. Per-server overrides, hysteresis and flap protection.
+- **Notification channels**: Telegram and a generic webhook (Slack, Discord, Mattermost, or your own receiver).
+- **Remote control (opt-in)**: start / stop / restart services and containers and update the agent from the dashboard. Disabled unless the server was installed with *Allow remote control*.
+- **Multi-user**: each user only sees their own servers. Admins create users, change roles, reset passwords and read the audit log. Public sign-up is off by default.
+- **Self-hosted**: your metrics live in your MongoDB.
 
 ## 🚀 Quick start (Docker)
 
@@ -37,7 +37,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-Open `http://localhost:3005`, create your admin account, and you're done.
+Open `http://localhost:3005`, create the admin account on the setup screen, and you're done.
 
 The image is built from the `Dockerfile` on the host itself — no registry needed. To update:
 
@@ -51,54 +51,57 @@ On a small VPS (≤ 2 GB RAM), set `BUILD_NODE_MAX_OLD_SPACE=1024` in `.env` if 
 
 ### Auto-deploy (GitHub Actions)
 
-`.github/workflows/deploy.yml` runs lint on every push to `main`, then SSHes into the VPS and runs `git pull --ff-only && docker compose up -d --build` in `/home/ubuntu/vps-monitoring`. That folder must be a `git clone` of this repo (with a `.env`). Required secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (+ optional `TELEGRAM_*` for notifications).
+`.github/workflows/deploy.yml` runs lint, typecheck, unit tests, a syntax check of the agent scripts and a production build on every push and pull request. Pushes to `main` then SSH into the VPS and run `git pull --ff-only && docker compose up -d --build` in `/home/ubuntu/vps-monitoring`. That folder must be a `git clone` of this repo (with a `.env`). Required secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (+ optional `TELEGRAM_*` for notifications).
 
 ### MongoDB outside Docker (Atlas, another VPS, …)
 
-The app does **not** need Mongo on the same Docker network. Set **`MONGODB_URI`** in `.env` to your real connection string (with user/password if required).
+The app does **not** need Mongo on the same Docker network. Set **`MONGODB_URI`** in `.env` to your real connection string.
 
-- **Firewall / Atlas IP allowlist:** allow the **public egress IP** of the machine running the `web` container (or `0.0.0.0/0` only for testing).
-- **TLS:** Atlas uses `mongodb+srv://…`; self‑hosted often uses `mongodb://…` on port `27017` with TLS optional depending on your server.
-- **Docker Compose:** the file still defines a `mongo` service for local demos. If you use **only** external Mongo, start the app without pulling that service up:
+- **Firewall / Atlas IP allowlist:** allow the **public egress IP** of the machine running the `web` container.
+- **TLS:** Atlas uses `mongodb+srv://…`; self-hosted often uses `mongodb://…:27017`.
+- Start only the web service when you don't need the bundled Mongo:
 
 ```bash
-# In .env set MONGODB_URI=... (Atlas or remote host)
 docker compose up -d --build --no-deps web
 ```
 
-If you keep `docker compose up -d` (with the bundled `mongo` service), you can still point `web` at an external DB by setting `MONGODB_URI` in `.env`; the local `mongo` container will simply stay unused.
-
-**Debug:** open `GET /api/health/db` on your deployed site — it returns JSON `{ ok: true }` or a safe Mongo error (e.g. authentication vs timeout) without printing your password.
+**Debug:** `GET /api/health/db` returns `{ ok: true }` or a safe Mongo error (authentication vs timeout) without printing your password. The compose healthcheck uses it.
 
 ## 🖥️ Adding a server
 
-In the dashboard, click **Add server**. Copy the install command and run it on your VPS:
+In the dashboard click **Add server**, optionally tick **Allow remote control**, then run the command on your VPS:
 
 ```bash
-curl -fsSL "https://monitor.yourdomain.com/api/install?userId=YOUR_USER_ID" | sudo bash
+curl -fsSL "https://monitor.yourdomain.com/api/install?token=enr_…" | sudo bash
 ```
 
-The VPS will:
+The installer:
 
-1. Register itself with the dashboard (auto-generates `agentId` + token).
-2. Install an isolated systemd service `vps-monitor-agent-<userId>` that survives reboots.
-3. Start posting metrics immediately.
+1. Installs `curl` and `jq` if needed and downloads the agent from `/api/agent/script`.
+2. Registers the VPS with your enrollment token (gets an `agentId` + per-agent token).
+3. Installs the systemd service `vps-monitor-agent-<userId>` under `/opt/vps-monitor-agent-<userId>`.
 
-No login, no manual steps required.
-
-> [!NOTE]
-> The agent supports **multi-user installations** on a single VPS. If multiple users install the agent on the same machine, each user's installation runs isolated under `/opt/vps-monitor-agent-<userId>` as its own systemd service, without overwriting other users' configurations or metrics.
+The command contains your enrollment token — treat it like a password. **Rotate token** on the Add server page invalidates old commands; installed agents keep working. Several users can install on the same VPS; each installation is isolated.
 
 ### Manage the agent on the VPS
 
-Use your specific `userId` in the commands below (the correct commands are customized and shown under the **Add server** or **Documentation** tab on your dashboard):
-
 ```bash
-sudo systemctl status vps-monitor-agent-<userId>    # check status
+sudo systemctl status vps-monitor-agent-<userId>    # status
 sudo systemctl restart vps-monitor-agent-<userId>   # restart
-sudo journalctl -u vps-monitor-agent-<userId> -f    # tail logs
+sudo journalctl -u vps-monitor-agent-<userId> -f    # logs
 sudo /opt/vps-monitor-agent-<userId>/uninstall.sh   # remove
 ```
+
+Agent settings live in `/opt/vps-monitor-agent-<userId>/agent.conf`:
+
+| Key                     | Default | Meaning |
+| ----------------------- | ------- | ------- |
+| `INTERVAL`              | `15`    | Seconds between heartbeats. |
+| `ALLOW_REMOTE_COMMANDS` | `0`     | `1` lets the dashboard start/stop/restart services and containers and update the agent. Restart the agent after changing it. |
+| `DETAILS_EVERY`         | `4`     | Send container logs + inspect every N heartbeats. |
+| `LOGS_TAIL`             | `200`   | Log lines per container. |
+
+Agents from before 2.0 keep reporting; use **Update agent** (needs remote control) or re-run the install command to upgrade.
 
 ## 🛠️ Local development
 
@@ -109,76 +112,83 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Then visit `http://localhost:3000`.
+Then visit `http://localhost:3000`. Checks: `npm run lint`, `npm run typecheck`, `npm test`.
 
 ## ⚙️ Environment variables
 
-| Variable                       | Required | Default                                | Description                                  |
-| ------------------------------ | -------- | -------------------------------------- | -------------------------------------------- |
-| `MONGODB_URI`                  | yes      | `mongodb://localhost:27017/vps-monitoring` | Any reachable MongoDB (local, other VPS, Atlas `mongodb+srv://…`). |
-| `JWT_SECRET`                   | yes (prod) | dev-only fallback                    | Secret used to sign session cookies.         |
-| `NEXT_PUBLIC_APP_URL`          | yes      | `http://localhost:3000`                | Public URL where the dashboard is reachable. |
-| `AGENT_OFFLINE_AFTER_SECONDS`  | no       | `60`                                   | After how many seconds an agent is "offline". |
+| Variable                      | Required   | Default                                    | Description |
+| ----------------------------- | ---------- | ------------------------------------------ | ----------- |
+| `MONGODB_URI`                 | yes        | `mongodb://localhost:27017/vps-monitoring` | Any reachable MongoDB. |
+| `JWT_SECRET`                  | yes (prod) | dev-only fallback                          | Signs session cookies. |
+| `NEXT_PUBLIC_APP_URL`         | yes        | `http://localhost:3000`                    | Public URL of the dashboard (used by the installer and alert links). Use `https://` in production. |
+| `AGENT_OFFLINE_AFTER_SECONDS` | no         | `60`                                       | Silence after which a server is offline. |
+| `ALLOW_SIGNUP`                | no         | `false`                                    | Allow public self-registration at `/register`. |
+| `METRICS_RETENTION_DAYS`      | no         | `7`                                        | Raw host + container metrics retention. |
+| `ROLLUP_RETENTION_DAYS`       | no         | `90`                                       | Hourly rollup retention (30d / 90d charts). |
+| `ALLOW_PRIVATE_TARGETS`       | no         | `false`                                    | Let webhooks and domain checks reach private / loopback addresses (LAN-only setups). |
+| `DISABLE_SCHEDULER`           | no         | `false`                                    | Turn off background jobs in this process. Jobs already use a Mongo lease, so several replicas are safe without it. |
 
-### Telegram overload alerts
-
-Configure the bot token, chat id, thresholds (CPU, RAM, disk `/`), and per-server cooldown in **Settings** in the web UI. Values are stored in MongoDB (not in environment variables). Each agent heartbeat is checked: if CPU, RAM, or disk (/) is at or above the configured thresholds, one HTML message is sent to Telegram. The same server will not receive another alert until the cooldown period passes (even if multiple metrics are high).
+Alert channels and thresholds are configured per user in **Settings** and stored in MongoDB.
 
 ## 🏗️ Architecture
 
 ```
- ┌────────────────────┐  HTTPS   ┌────────────────────┐  Mongo  ┌───────────────┐
- │  VPS #1 (bash)     │ ───────► │  Next.js API       │ ──────► │  MongoDB      │
- │  /opt/vps-mon-...  │          │  /api/agents/*     │         │  agents,      │
- └────────────────────┘          │  /api/auth/*       │         │  metrics      │
- ┌────────────────────┐          └─────────┬──────────┘         └───────────────┘
- │  VPS #2 (bash)     │ ───────►           │
- └────────────────────┘                    ▼
-                                  ┌────────────────────┐
-                                  │  Next.js Web UI    │  ◄── Admin (browser)
-                                  └────────────────────┘
+ ┌────────────────────┐  HTTPS   ┌──────────────────────────┐        ┌───────────────┐
+ │  VPS (bash agent)  │ ───────► │  Next.js API             │ ─────► │  MongoDB      │
+ │  /opt/vps-mon-...  │ ◄─────── │  heartbeat → ingest      │        │               │
+ └────────────────────┘ commands │  scheduler (offline,     │        └───────────────┘
+                                 │  rollups, domain checks) │ ─────► Telegram / webhook
+                                 └────────────┬─────────────┘
+                                              ▼
+                                   Next.js Web UI  ◄── users (browser)
 ```
 
-- **Web**: Next.js 14 App Router (this repo).
-- **DB**: MongoDB. Two collections: `agents` (metadata + token), `metrics` (time-series).
-- **Agent**: A 200-line bash script (`/public/install.sh`) that reads `/proc`, `df`, `uptime` etc.
-- **Auth**:
-  - Admin → HttpOnly cookie + HS256 JWT.
-  - Agent → unique per-VPS token, validated on every heartbeat.
+- **Web**: Next.js 14 App Router. Background jobs start from `src/instrumentation.ts`.
+- **Ingest**: `src/lib/ingest.ts` validates heartbeats and writes in bulk; `src/lib/alerts.ts` turns them into incidents.
+- **Agent**: `agent/agent.sh` (served at `/api/agent/script`), installed by `agent/install.sh` (served at `/api/install`).
+- **Auth**: HttpOnly cookie with an HS256 JWT holding only the user id and a session version; role is read from the database on every request. Agents use a per-agent token that can be rotated.
 
 ## 🔒 Security notes
 
-- The first user created via `/setup` is the only admin. Public registration is **disabled**.
-- Each agent's token is a one-way credential; compromising one VPS does **not** affect others.
-- Always run the dashboard behind HTTPS (e.g. Caddy, Nginx, Traefik).
-- Set a strong `JWT_SECRET` (`openssl rand -hex 64`).
+- The first account is created on `/setup` and is the admin. Public registration is off unless `ALLOW_SIGNUP=true`.
+- Changing a password or role signs the user out everywhere.
+- Each agent has its own token; compromising one VPS does not expose others.
+- The agent never sends container environment variables. Remote commands are opt-in per server, limited to start/stop/restart/update, validated on both sides and recorded in the audit log.
+- Webhooks and domain checks refuse private / metadata addresses by default.
+- Login, setup, install and registration are rate-limited. Run the dashboard behind HTTPS (Caddy, Nginx, Traefik) and set a strong `JWT_SECRET` (`openssl rand -hex 64`).
 
 ## 📦 API endpoints
 
-| Method | Path                            | Auth        | Description                       |
-| ------ | ------------------------------- | ----------- | --------------------------------- |
-| GET    | `/api/install`                  | public      | Returns the install bash script.  |
-| POST   | `/api/setup`                    | once only   | Creates the admin account.        |
-| POST   | `/api/auth/login`               | public      | Sign in.                          |
-| POST   | `/api/auth/logout`              | session     | Sign out.                         |
-| POST   | `/api/auth/password`            | session     | Change password.                  |
-| POST   | `/api/agents/register`          | public      | Agent auto-registration.          |
-| POST   | `/api/agents/heartbeat`         | agent token | Agent posts metrics.              |
-| GET    | `/api/agents`                   | session     | List all agents.                  |
-| GET    | `/api/agents/:id`               | session     | Get one agent's details.          |
-| PATCH  | `/api/agents/:id`               | session     | Update label/tags.                |
-| DELETE | `/api/agents/:id`               | session     | Remove agent + metrics.           |
-| GET    | `/api/agents/:id/metrics`       | session     | Time-series metrics.              |
-| GET    | `/api/agents/:id/services`      | session     | List system services.             |
-| POST   | `/api/agents/:id/services`      | session     | Execute service command (start/stop/restart). |
-| POST   | `/api/agents/command-status`    | agent token | Update command execution status.  |
-| GET    | `/api/containers`               | session     | List all containers and metrics.  |
-| GET    | `/api/containers/detail`        | session     | Get container logs & details.     |
-| GET    | `/api/settings/alerts`          | session     | Get Telegram alert settings.      |
-| PUT    | `/api/settings/alerts`          | session     | Update Telegram alert settings.   |
-| POST   | `/api/settings/alerts/test`     | session     | Test Telegram alert configuration.|
-| GET    | `/api/admin/users`              | session/adm | List all users (admin only).      |
-| DELETE | `/api/admin/users/:userId`      | session/adm | Delete a user & resources.        |
+| Method | Path                                   | Auth        | Description |
+| ------ | -------------------------------------- | ----------- | ----------- |
+| GET    | `/api/install?token=`                  | enroll token | Installer script. |
+| GET    | `/api/agent/script`                    | public      | Agent script (install + self-update). |
+| POST   | `/api/agents/register`                 | enroll token | Agent registration. |
+| POST   | `/api/agents/heartbeat`                | agent token | Metrics; reply may carry a command or a rotated token. |
+| POST   | `/api/agents/command-status`           | agent token | Command result. |
+| POST   | `/api/setup`                           | once only   | Create the admin account. |
+| POST   | `/api/auth/login` / `logout` / `password` | –/session | Sign in, sign out, change password. |
+| POST   | `/api/auth/signup`                     | public      | Only when `ALLOW_SIGNUP=true`. |
+| GET    | `/api/agents`                          | session     | Your servers with latest metrics. |
+| GET/PATCH/DELETE | `/api/agents/:id`            | session     | Details, rename/tags, delete with all data. |
+| GET    | `/api/agents/:id/metrics?range=`       | session     | Host metrics (`1h`…`90d`). |
+| GET    | `/api/agents/:id/containers/metrics?range=` | session | Per-container history. |
+| GET    | `/api/agents/:id/services`             | session     | systemd units. |
+| GET    | `/api/agents/:id/services/:name/metrics` | session   | Per-service history. |
+| GET    | `/api/agents/:id/ports`                | session     | Ports, domains and their latest checks. |
+| GET/POST | `/api/agents/:id/commands`           | session     | Command history / queue a command. |
+| GET    | `/api/agents/:id/commands/:commandId`  | session     | Command status + output. |
+| POST   | `/api/agents/:id/rotate-token`         | session     | Rotate the agent token. |
+| GET    | `/api/containers`, `/api/containers/detail` | session | Containers across servers, logs + inspect. |
+| GET    | `/api/incidents?status=&agentId=`      | session     | Incidents. |
+| GET/PUT | `/api/settings/alerts`                | session     | Channels and rules. |
+| PUT    | `/api/settings/alerts/agents/:id`      | session     | Per-server overrides. |
+| POST   | `/api/settings/alerts/test`            | session     | Send a test notification. |
+| POST   | `/api/settings/enroll-token`           | session     | Rotate the enrollment token. |
+| GET/POST | `/api/admin/users`                   | admin       | List / create users. |
+| PATCH/DELETE | `/api/admin/users/:userId`       | admin       | Change role, reset password / delete with all data. |
+| GET    | `/api/admin/audit`                     | admin       | Audit log. |
+| GET    | `/api/health/db`                       | public      | Database health. |
 
 ## 📄 License
 
