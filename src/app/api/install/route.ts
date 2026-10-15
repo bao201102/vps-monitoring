@@ -30,16 +30,17 @@ export async function GET(req: Request) {
     return text('Invalid or expired enrollment token. Copy a fresh install command from the dashboard.', 401);
   }
 
-  const scriptPath = path.join(process.cwd(), 'public', 'install.sh');
+  const scriptPath = path.join(process.cwd(), 'agent', 'install.sh');
   let template: string;
   try {
-    template = await readFile(scriptPath, 'utf8');
+    // Normalise line endings in case the checkout used CRLF (bash chokes on \r).
+    template = (await readFile(scriptPath, 'utf8')).replace(/\r\n/g, '\n');
   } catch {
     return text('install.sh template missing on server', 500);
   }
 
-  // All substituted values are validated to a safe charset above / below, so they
-  // cannot break out of the double-quoted shell assignments in the template.
+  // All substituted values are validated to a safe charset, so they cannot break
+  // out of the double-quoted shell assignments in the template.
   const baseUrl = env.APP_URL.replace(/\/$/, '');
   if (!/^https?:\/\/[A-Za-z0-9.:\-\[\]/_]+$/.test(baseUrl)) {
     return text('NEXT_PUBLIC_APP_URL is not a valid URL', 500);

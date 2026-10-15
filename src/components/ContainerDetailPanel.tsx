@@ -5,7 +5,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, RotateCw, Maximize2, Minimize2 } from 'lucide-react';
 import { ContainerData } from './ContainerTable';
-import { getMockContainerId } from '@/lib/containers';
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -36,7 +35,7 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
     fetcher
   );
 
-  const mockId = getMockContainerId(container.name);
+  const shortId = typeof data?.details?.Id === 'string' ? data.details.Id.slice(0, 12) : null;
   const logs = data?.logs || EMPTY_ARRAY;
   const details = data?.details || null;
   const showLoading = isLoading || isRefreshing;
@@ -125,13 +124,17 @@ export function ContainerDetailPanel({ container, onClose }: ContainerDetailPane
           <div className="space-y-1">
             <h2 className="text-lg font-bold tracking-tight text-ink">{container.name}</h2>
             <div className="text-xs text-ink-muted flex flex-wrap items-center gap-1.5">
-              <span>{container.system || 'nub.io.vn'}</span>
+              <span>{container.system}</span>
               <span className="text-border">•</span>
               <span className="text-ink">{container.status}</span>
               <span className="text-border">•</span>
               <span className="text-ink truncate max-w-[150px]" title={container.image}>{container.image}</span>
-              <span className="text-border">•</span>
-              <span className="font-mono text-xs text-ink-soft bg-bg-muted px-1.5 py-0.5 rounded border border-border">{mockId}</span>
+              {shortId && (
+                <>
+                  <span className="text-border">•</span>
+                  <span className="font-mono text-xs text-ink-soft bg-bg-muted px-1.5 py-0.5 rounded border border-border">{shortId}</span>
+                </>
+              )}
             </div>
           </div>
           <button 

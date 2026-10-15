@@ -45,6 +45,8 @@ RUN groupadd --system --gid 1001 nodejs \
 
 # Standalone output already bundles only the node_modules the server needs.
 COPY --from=builder /app/public ./public
+# Agent installer/script templates served by /api/install and /api/agent/script.
+COPY --from=builder /app/agent ./agent
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 

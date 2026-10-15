@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server';
 import { getUserResolvedAlertSettings } from '@/lib/user-settings';
 import { connectDB } from '@/lib/db';
 import { Agent } from '@/lib/models/Agent';
-import { Metric } from '@/lib/models/Metric';
 import { SystemService } from '@/lib/models/SystemService';
 import { getSessionFromCookies } from '@/lib/auth';
 import { env } from '@/lib/env';
@@ -46,19 +45,8 @@ export async function GET() {
       a.lastSeenAt && now - new Date(a.lastSeenAt).getTime() <= offlineMs ? true : false;
 
     const servInfo = servicesMap.get(a.agentId);
-    let servicesCount = servInfo?.total ?? 0;
-    let servicesFailedCount = servInfo?.failed ?? 0;
-
-    // Fallback for mock systems if no data is in DB yet
-    if (servicesCount === 0) {
-      if (a.agentId === 'instance-20260414-1357') {
-        servicesCount = 8;
-        servicesFailedCount = 1;
-      } else if (a.agentId === 'monitoring') {
-        servicesCount = 7;
-        servicesFailedCount = 0;
-      }
-    }
+    const servicesCount = servInfo?.total ?? 0;
+    const servicesFailedCount = servInfo?.failed ?? 0;
     return {
       agentId: a.agentId,
       hostname: a.hostname,
