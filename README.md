@@ -34,10 +34,24 @@ cp .env.example .env
 #   JWT_SECRET=$(openssl rand -hex 64)
 #   NEXT_PUBLIC_APP_URL=https://monitor.yourdomain.com
 
-docker compose up -d
+docker compose up -d --build
 ```
 
-Open `http://localhost:3000`, create your admin account, and you're done.
+Open `http://localhost:3005`, create your admin account, and you're done.
+
+The image is built from the `Dockerfile` on the host itself — no registry needed. To update:
+
+```bash
+git pull --ff-only
+docker compose up -d --build
+docker image prune -f
+```
+
+On a small VPS (≤ 2 GB RAM), set `BUILD_NODE_MAX_OLD_SPACE=1024` in `.env` if `next build` gets OOM-killed.
+
+### Auto-deploy (GitHub Actions)
+
+`.github/workflows/deploy.yml` runs lint on every push to `main`, then SSHes into the VPS and runs `git pull --ff-only && docker compose up -d --build` in `/home/ubuntu/vps-monitoring`. That folder must be a `git clone` of this repo (with a `.env`). Required secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (+ optional `TELEGRAM_*` for notifications).
 
 ### MongoDB outside Docker (Atlas, another VPS, …)
 
@@ -49,7 +63,7 @@ The app does **not** need Mongo on the same Docker network. Set **`MONGODB_URI`*
 
 ```bash
 # In .env set MONGODB_URI=... (Atlas or remote host)
-docker compose up -d --no-deps web
+docker compose up -d --build --no-deps web
 ```
 
 If you keep `docker compose up -d` (with the bundled `mongo` service), you can still point `web` at an external DB by setting `MONGODB_URI` in `.env`; the local `mongo` container will simply stay unused.

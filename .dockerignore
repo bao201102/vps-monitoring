@@ -7,6 +7,11 @@ node_modules
 README.md
 Dockerfile
 docker-compose.yml
+.dockerignore
+
+# Runtime data on the VPS: bind-mounted Mongo data must never enter the build context
+mongo_data
+
 .env
 .env.local
 .env*.local

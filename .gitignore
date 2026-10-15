@@ -12,6 +12,9 @@ build
 out
 coverage
 
+# Bind-mounted MongoDB data (docker-compose)
+mongo_data/
+
 # TypeScript
 *.tsbuildinfo
 next-env.d.ts
