@@ -149,7 +149,7 @@ AGENT_TOKEN="$AGENT_TOKEN"
 INTERVAL="$INTERVAL"
 LOGS_TAIL="200"
 # Send container logs/inspect every N heartbeats.
-DETAILS_EVERY="4"
+DETAILS_EVERY="8"
 # Set to 1 to let the dashboard start/stop/restart services and containers
 # and update this agent remotely. Restart the agent service after changing it.
 ALLOW_REMOTE_COMMANDS="$ALLOW_REMOTE_COMMANDS"
