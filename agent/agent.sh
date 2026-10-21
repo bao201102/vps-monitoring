@@ -8,7 +8,7 @@
 # ==============================================================================
 set -u
 
-AGENT_VERSION="2.0.0"
+AGENT_VERSION="2.0.1"
 
 export LC_ALL=C
 export LANG=C
@@ -21,7 +21,7 @@ CONFIG_FILE="${1:-$SCRIPT_DIR/agent.conf}"
 
 LOGS_TAIL="${LOGS_TAIL:-200}"
 # Container logs + inspect are heavy; send them every N cycles only.
-DETAILS_EVERY="${DETAILS_EVERY:-4}"
+DETAILS_EVERY="${DETAILS_EVERY:-8}"
 ALLOW_REMOTE_COMMANDS="${ALLOW_REMOTE_COMMANDS:-0}"
 
 PREV_RX=0; PREV_TX=0; PREV_TS=0
@@ -180,7 +180,7 @@ read_docker_containers() {
     local _tmp_logs _tmp_details _tmp_payload
     _tmp_logs=$(mktemp); _tmp_details=$(mktemp); _tmp_payload=$(mktemp)
     if [ "$with_details" = "1" ]; then
-      timeout 3 docker logs --tail "$LOGS_TAIL" "$name" 2>&1 | tail -c 400000 | jq -R . | jq -s . > "$_tmp_logs" 2>/dev/null || echo "[]" > "$_tmp_logs"
+      timeout 3 docker logs --tail "$LOGS_TAIL" "$name" 2>&1 | tail -c 100000 | jq -R . | jq -s . > "$_tmp_logs" 2>/dev/null || echo "[]" > "$_tmp_logs"
       # Config.Env is dropped: it usually holds secrets (DB passwords, API keys).
       timeout 3 docker inspect --format '{{json .}}' "$name" 2>/dev/null \
         | jq '{Id, Created, Args, Config: ((.Config // {}) | del(.Env)), State, HostConfig: {RestartPolicy: .HostConfig.RestartPolicy, Memory: .HostConfig.Memory, NanoCpus: .HostConfig.NanoCpus}, NetworkSettings: {Ports: .NetworkSettings.Ports, Networks: (.NetworkSettings.Networks // {} | map_values({IPAddress, Gateway}))}, Mounts: [(.Mounts // [])[] | {Type, Source, Destination, RW}]}' \
@@ -522,11 +522,17 @@ read_host_domains() {
 
 post_json() {
   # $1 = path, $2 = file with JSON body. Prints "<http_code>\n<body>".
-  local _resp
+  # Retries once after a network error or 5xx so a single blip doesn't cost a heartbeat.
+  local _resp code attempt
   _resp=$(mktemp)
-  local code
-  code=$(curl -sS -w "%{http_code}" -o "$_resp" --max-time 15 -X POST "$SERVER_URL$1" \
-    -H 'Content-Type: application/json' -d @"$2" 2>/dev/null || echo "000")
+  for attempt in 1 2; do
+    # curl still prints %{http_code} ("000" when nothing came back) on failure, so ignore its exit code.
+    code=$(curl -sS -w "%{http_code}" -o "$_resp" --connect-timeout 5 --max-time 15 -X POST "$SERVER_URL$1" \
+      -H 'Content-Type: application/json' -d @"$2" 2>/dev/null)
+    [[ "$code" =~ ^[0-9]{3}$ ]] || code="000"
+    [ "$code" = "000" ] || [ "${code:0:1}" = "5" ] || break
+    [ "$attempt" -eq 1 ] && sleep 2
+  done
   printf '%s\n' "$code"
   cat "$_resp"
   rm -f "$_resp"
